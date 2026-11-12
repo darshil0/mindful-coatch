@@ -5,6 +5,7 @@ import {
   computeSelfReportedEnergyScore,
   computeWellnessStatistics,
   formatSleepMinutes,
+  getChronologicalReflectiveNotes,
   hasAnyRecordedMetric,
 } from '../src/lib/wellnessMetrics';
 
@@ -264,5 +265,81 @@ test('computeWellnessStatistics aggregates daily completedSessionsCount and pres
 
   assert.equal(byDate['2026-11-12'].energyScore, 90);
   assert.equal(byDate['2026-11-12'].completedSessionsCount, 1);
+});
+
+test('hasAnyRecordedMetric and getChronologicalReflectiveNotes track and order daily reflections chronologically', () => {
+  assert.equal(
+    hasAnyRecordedMetric({
+      date: '2026-11-12',
+      energyRating: null,
+      steps: null,
+      sleepMinutes: null,
+      reflectiveNote: '   ',
+      updatedAt: '2026-11-12T10:00:00.000Z',
+    }),
+    false
+  );
+
+  assert.equal(
+    hasAnyRecordedMetric({
+      date: '2026-11-12',
+      energyRating: null,
+      steps: null,
+      sleepMinutes: null,
+      reflectiveNote: 'Quiet evening reading.',
+      updatedAt: '2026-11-12T10:00:00.000Z',
+    }),
+    true
+  );
+
+  const entries = {
+    '2026-11-08': {
+      date: '2026-11-08',
+      energyRating: 6,
+      steps: 4500,
+      sleepMinutes: 420,
+      reflectiveNote: 'Took a slow morning stretch.',
+      updatedAt: '2026-11-08T09:00:00.000Z',
+    },
+    '2026-11-10': {
+      date: '2026-11-10',
+      energyRating: 8,
+      steps: null,
+      sleepMinutes: null,
+      reflectiveNote: null, // day without a note should be skipped
+      updatedAt: '2026-11-10T09:00:00.000Z',
+    },
+    '2026-11-12': {
+      date: '2026-11-12',
+      energyRating: null,
+      steps: null,
+      sleepMinutes: null,
+      reflectiveNote: '  Unplugged before bed.  ',
+      updatedAt: '2026-11-12T20:00:00.000Z',
+    },
+    '2026-11-09': {
+      date: '2026-11-09',
+      energyRating: 7,
+      steps: 6100,
+      sleepMinutes: 465,
+      reflectiveNote: 'Steady focus after lunch walk.',
+      updatedAt: '2026-11-09T18:00:00.000Z',
+    },
+  };
+
+  const descNotes = getChronologicalReflectiveNotes(entries, 'desc');
+  assert.deepEqual(
+    descNotes.map((n) => n.date),
+    ['2026-11-12', '2026-11-09', '2026-11-08']
+  );
+  assert.equal(descNotes[0].note, 'Unplugged before bed.');
+  assert.equal(descNotes[0].energyScore, null);
+  assert.equal(descNotes[1].energyScore, 70);
+
+  const ascNotes = getChronologicalReflectiveNotes(entries, 'asc');
+  assert.deepEqual(
+    ascNotes.map((n) => n.date),
+    ['2026-11-08', '2026-11-09', '2026-11-12']
+  );
 });
 

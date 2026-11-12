@@ -10,13 +10,21 @@ import type {
   UserProfile,
 } from '../types/wellness';
 import { getLocalDateKey, isValidDateKey } from '../lib/dateUtils';
-import { computeMindfulStreak } from '../lib/wellnessMetrics';
+import {
+  computeMindfulStreak,
+  hasAnyRecordedMetric,
+} from '../lib/wellnessMetrics';
 import {
   DEFAULT_REMINDER_SCHEDULE,
   pruneDismissalsToDate,
   sanitizeReminderSchedule,
 } from '../lib/reminders';
-import { isValidWellnessGoal, validatePreferredName } from '../lib/validation';
+import {
+  isValidWellnessGoal,
+  MAX_REFLECTIVE_NOTE_LENGTH,
+  validatePreferredName,
+  validateReflectiveNote,
+} from '../lib/validation';
 
 export interface StorageLike {
   getItem(key: string): string | null;
@@ -246,7 +254,20 @@ export class WellnessStorageStore {
             ? rec.sleepMinutes
             : null;
 
-        if (energyRating === null && steps === null && sleepMinutes === null) {
+        let reflectiveNote: string | null = null;
+        if (typeof rec.reflectiveNote === 'string') {
+          const check = validateReflectiveNote(rec.reflectiveNote);
+          reflectiveNote = check.valid
+            ? check.value
+            : rec.reflectiveNote.trim().slice(0, MAX_REFLECTIVE_NOTE_LENGTH).trim() || null;
+        }
+
+        if (
+          energyRating === null &&
+          steps === null &&
+          sleepMinutes === null &&
+          reflectiveNote === null
+        ) {
           continue;
         }
 
@@ -255,6 +276,7 @@ export class WellnessStorageStore {
           energyRating,
           steps,
           sleepMinutes,
+          reflectiveNote,
           updatedAt:
             typeof rec.updatedAt === 'string' ? rec.updatedAt : new Date().toISOString(),
         };
@@ -275,14 +297,22 @@ export class WellnessStorageStore {
   ): Record<string, DailyEntry> {
     const current = this.loadEntries();
     const updated: Record<string, DailyEntry> = { ...current };
-    if (
-      entry.energyRating === null &&
-      entry.steps === null &&
-      entry.sleepMinutes === null
-    ) {
+    const sanitizedNote =
+      typeof entry.reflectiveNote === 'string'
+        ? validateReflectiveNote(entry.reflectiveNote)
+        : null;
+    const normalizedEntry: DailyEntry = {
+      ...entry,
+      reflectiveNote: sanitizedNote
+        ? sanitizedNote.valid
+          ? sanitizedNote.value
+          : entry.reflectiveNote?.trim().slice(0, MAX_REFLECTIVE_NOTE_LENGTH).trim() || null
+        : null,
+    };
+    if (!hasAnyRecordedMetric(normalizedEntry)) {
       delete updated[entry.date];
     } else {
-      updated[entry.date] = entry;
+      updated[entry.date] = normalizedEntry;
     }
     this.saveEntries(updated);
     this.recalculateAndSaveStreak(updated, this.loadCompletedSessions(), todayDateKey);

@@ -95,6 +95,7 @@ export default function App() {
           profile={store.profile}
           todayDateKey={env.todayDateKey}
           todayEntry={store.entriesByDate[env.todayDateKey]}
+          entriesByDate={store.entriesByDate}
           mindfulStreak={statistics.mindfulStreak}
           statistics={statistics}
           reminderSchedule={store.reminderSchedule}

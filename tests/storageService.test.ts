@@ -220,3 +220,42 @@ test('storage persists reminder schedule, prunes stale dismissals on date change
   store.deleteAllLocalData();
   assert.equal(mock.getItem(STORAGE_KEYS.REMINDERS), null);
 });
+
+test('storage persists reflectiveNote entries, supports note-only check-ins, and cleans up empty entries', () => {
+  const mock = new MockStorage();
+  const store = new WellnessStorageStore(mock);
+
+  store.upsertDailyEntry(
+    {
+      date: '2026-11-11',
+      energyRating: null,
+      steps: null,
+      sleepMinutes: null,
+      reflectiveNote: '  Slept early and felt rested.  ',
+      updatedAt: '2026-11-11T21:00:00.000Z',
+    },
+    '2026-11-12'
+  );
+
+  const hydrated = new WellnessStorageStore(mock).hydrate('2026-11-12');
+  assert.equal(
+    hydrated.entriesByDate['2026-11-11']?.reflectiveNote,
+    'Slept early and felt rested.'
+  );
+  assert.equal(hydrated.mindfulStreak.currentStreak, 1);
+
+  // Clearing the reflective note when no other metrics exist removes the entry cleanly
+  store.upsertDailyEntry(
+    {
+      date: '2026-11-11',
+      energyRating: null,
+      steps: null,
+      sleepMinutes: null,
+      reflectiveNote: '   ',
+      updatedAt: '2026-11-11T21:10:00.000Z',
+    },
+    '2026-11-12'
+  );
+  assert.equal(store.loadEntries()['2026-11-11'], undefined);
+});
+

@@ -10,7 +10,9 @@ import {
   splitSleepMinutesToInputs,
 } from '../../lib/wellnessMetrics';
 import {
+  MAX_REFLECTIVE_NOTE_LENGTH,
   validateEnergyRating,
+  validateReflectiveNote,
   validateSleepInputs,
   validateStepsInput,
 } from '../../lib/validation';
@@ -41,6 +43,9 @@ export function DailyCheckInCard({
   const [sleepMinutesInput, setSleepMinutesInput] = useState<string>(
     initialSleep.minutes
   );
+  const [reflectiveNoteInput, setReflectiveNoteInput] = useState<string>(
+    todayEntry?.reflectiveNote ?? ''
+  );
 
   const [showEnergyExplanation, setShowEnergyExplanation] = useState(false);
   const [formErrors, setFormErrors] = useState<{
@@ -48,6 +53,7 @@ export function DailyCheckInCard({
     energy?: string;
     steps?: string;
     sleep?: string;
+    note?: string;
   }>({});
   const [saveAnnouncement, setSaveAnnouncement] = useState<string | null>(null);
 
@@ -64,6 +70,7 @@ export function DailyCheckInCard({
     const sleepParts = splitSleepMinutesToInputs(todayEntry?.sleepMinutes);
     setSleepHoursInput(sleepParts.hours);
     setSleepMinutesInput(sleepParts.minutes);
+    setReflectiveNoteInput(todayEntry?.reflectiveNote ?? '');
     setFormErrors({});
   }, [todayDateKey, todayEntry]);
 
@@ -71,13 +78,14 @@ export function DailyCheckInCard({
     if (focusCheckInSignal > 0 && checkInSectionRef.current) {
       checkInSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
       const firstButton =
-        checkInSectionRef.current.querySelector<HTMLElement>('button, input');
+        checkInSectionRef.current.querySelector<HTMLElement>('button, input, textarea');
       firstButton?.focus();
     }
   }, [focusCheckInSignal]);
 
   const savedEnergyScore = computeSelfReportedEnergyScore(todayEntry?.energyRating);
   const hasSavedToday = hasAnyRecordedMetric(todayEntry);
+  const trimmedNoteLength = reflectiveNoteInput.trim().length;
 
   const handleSubmitCheckIn = (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,16 +94,19 @@ export function DailyCheckInCard({
     const energyRes = validateEnergyRating(selectedEnergy);
     const stepsRes = validateStepsInput(stepsInput);
     const sleepRes = validateSleepInputs(sleepHoursInput, sleepMinutesInput);
+    const noteRes = validateReflectiveNote(reflectiveNoteInput);
 
     const nextErrors: {
       general?: string;
       energy?: string;
       steps?: string;
       sleep?: string;
+      note?: string;
     } = {};
     if (!energyRes.valid) nextErrors.energy = energyRes.error;
     if (!stepsRes.valid) nextErrors.steps = stepsRes.error;
     if (!sleepRes.valid) nextErrors.sleep = sleepRes.error;
+    if (!noteRes.valid) nextErrors.note = noteRes.error;
 
     if (Object.keys(nextErrors).length > 0) {
       setFormErrors(nextErrors);
@@ -105,13 +116,17 @@ export function DailyCheckInCard({
     const energyVal = energyRes.valid ? energyRes.value : null;
     const stepsVal = stepsRes.valid ? stepsRes.value : null;
     const sleepVal = sleepRes.valid ? sleepRes.value : null;
+    const noteVal = noteRes.valid ? noteRes.value : null;
     const isAllEmpty =
-      energyVal === null && stepsVal === null && sleepVal === null;
+      energyVal === null &&
+      stepsVal === null &&
+      sleepVal === null &&
+      noteVal === null;
 
     if (isAllEmpty && !hasSavedToday) {
       setFormErrors({
         general:
-          'Enter at least one value (energy rating, sleep, or steps) to save today’s check-in.',
+          'Enter at least one value (energy rating, sleep, steps, or a reflective note) to save today’s check-in.',
       });
       return;
     }
@@ -122,6 +137,7 @@ export function DailyCheckInCard({
       energyRating: energyVal,
       steps: stepsVal,
       sleepMinutes: sleepVal,
+      reflectiveNote: noteVal,
       updatedAt: new Date().toISOString(),
     };
 
@@ -206,25 +222,35 @@ export function DailyCheckInCard({
       )}
 
       {/* Today's Saved Snapshot Row */}
-      <div className="mt-5 grid grid-cols-2 gap-4 rounded-xl bg-[#FAF9F6] p-4 sm:grid-cols-3">
-        <div>
-          <span className="block text-xs text-[#5C6762]">Saved energy</span>
-          <span className="mt-0.5 block font-mono text-sm font-medium text-[#1E2421] tabular-nums">
-            {savedEnergyScore !== null ? `${savedEnergyScore} / 100` : 'Not recorded'}
-          </span>
+      <div className="mt-5 rounded-xl bg-[#FAF9F6] p-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <div>
+            <span className="block text-xs text-[#5C6762]">Saved energy</span>
+            <span className="mt-0.5 block font-mono text-sm font-medium text-[#1E2421] tabular-nums">
+              {savedEnergyScore !== null ? `${savedEnergyScore} / 100` : 'Not recorded'}
+            </span>
+          </div>
+          <div>
+            <span className="block text-xs text-[#5C6762]">Saved sleep</span>
+            <span className="mt-0.5 block font-mono text-sm font-medium text-[#1E2421] tabular-nums">
+              {formatSleepMinutes(todayEntry?.sleepMinutes)}
+            </span>
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <span className="block text-xs text-[#5C6762]">Saved steps</span>
+            <span className="mt-0.5 block font-mono text-sm font-medium text-[#1E2421] tabular-nums">
+              {formatStepsCount(todayEntry?.steps)}
+            </span>
+          </div>
         </div>
-        <div>
-          <span className="block text-xs text-[#5C6762]">Saved sleep</span>
-          <span className="mt-0.5 block font-mono text-sm font-medium text-[#1E2421] tabular-nums">
-            {formatSleepMinutes(todayEntry?.sleepMinutes)}
-          </span>
-        </div>
-        <div className="col-span-2 sm:col-span-1">
-          <span className="block text-xs text-[#5C6762]">Saved steps</span>
-          <span className="mt-0.5 block font-mono text-sm font-medium text-[#1E2421] tabular-nums">
-            {formatStepsCount(todayEntry?.steps)}
-          </span>
-        </div>
+        {todayEntry?.reflectiveNote && (
+          <div className="mt-3 border-t border-[#ECEAE3] pt-3">
+            <span className="block text-xs text-[#5C6762]">Saved reflective note</span>
+            <p className="mt-0.5 line-clamp-2 text-sm text-[#1E2421]">
+              {todayEntry.reflectiveNote}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Manual Check-in Form */}
@@ -426,6 +452,83 @@ export function DailyCheckInCard({
               className="mt-2 text-sm font-medium text-[#9B2C2C]"
             >
               {formErrors.steps}
+            </p>
+          )}
+        </div>
+
+        {/* Reflective Note */}
+        <div className="border-t border-[#ECEAE3] pt-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label
+              htmlFor="daily-reflective-note-input"
+              className="block text-sm font-medium text-[#1E2421]"
+            >
+              Reflective note
+            </label>
+            <div className="flex items-center gap-3">
+              {reflectiveNoteInput.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReflectiveNoteInput('');
+                    if (formErrors.note || formErrors.general) {
+                      setFormErrors((prev) => ({
+                        ...prev,
+                        note: undefined,
+                        general: undefined,
+                      }));
+                    }
+                  }}
+                  className="min-h-[44px] px-1 text-xs font-medium text-[#5C6762] underline underline-offset-4 hover:text-[#1E2421] whitespace-nowrap"
+                >
+                  Clear note
+                </button>
+              )}
+              <span
+                className={`font-mono text-xs tabular-nums ${
+                  trimmedNoteLength > MAX_REFLECTIVE_NOTE_LENGTH
+                    ? 'font-medium text-[#9B2C2C]'
+                    : 'text-[#5C6762]'
+                }`}
+              >
+                {trimmedNoteLength} / {MAX_REFLECTIVE_NOTE_LENGTH}
+              </span>
+            </div>
+          </div>
+          <p id="reflective-note-hint" className="mt-1 text-xs text-[#5C6762]">
+            Optional brief journal reflection on how your day felt, what helped, or
+            what’s on your mind.
+          </p>
+          <textarea
+            id="daily-reflective-note-input"
+            rows={3}
+            value={reflectiveNoteInput}
+            onChange={(e) => {
+              setReflectiveNoteInput(e.target.value);
+              if (formErrors.note || formErrors.general) {
+                setFormErrors((prev) => ({
+                  ...prev,
+                  note: undefined,
+                  general: undefined,
+                }));
+              }
+            }}
+            aria-invalid={formErrors.note ? 'true' : 'false'}
+            aria-describedby={
+              formErrors.note
+                ? 'reflective-note-hint reflective-note-error'
+                : 'reflective-note-hint'
+            }
+            placeholder="e.g. A quieter afternoon walk helped me settle before dinner."
+            className="mt-3 w-full rounded-xl border border-[#CFCBC0] bg-[#FAF9F6] px-3.5 py-2.5 text-sm leading-relaxed text-[#1E2421] placeholder:text-[#76827C] focus:border-[#2F5D50] focus:bg-white"
+          />
+          {formErrors.note && (
+            <p
+              id="reflective-note-error"
+              role="alert"
+              className="mt-2 text-sm font-medium text-[#9B2C2C]"
+            >
+              {formErrors.note}
             </p>
           )}
         </div>

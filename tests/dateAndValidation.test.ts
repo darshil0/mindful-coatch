@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import { getLocalDateKey, getPastLocalDateKeys, isValidDateKey } from '../src/lib/dateUtils';
 import {
   isValidWellnessGoal,
+  MAX_REFLECTIVE_NOTE_LENGTH,
   validateEnergyRating,
   validatePreferredName,
+  validateReflectiveNote,
   validateSleepInputs,
   validateStepsInput,
 } from '../src/lib/validation';
@@ -53,4 +55,19 @@ test('validation distinguishes missing inputs from recorded zero values and enfo
   assert.deepEqual(validateSleepInputs('24', '0'), { valid: true, value: 1440 });
   assert.equal(validateSleepInputs('24', '15').valid, false);
   assert.equal(validateSleepInputs('6', '60').valid, false);
+
+  // Reflective note: blank -> null, preserves line breaks, rejects > MAX_REFLECTIVE_NOTE_LENGTH
+  assert.deepEqual(validateReflectiveNote('   \n  '), { valid: true, value: null });
+  assert.deepEqual(validateReflectiveNote('  Felt calmer after a walk.\r\nSlept better.  '), {
+    valid: true,
+    value: 'Felt calmer after a walk.\nSlept better.',
+  });
+  assert.equal(
+    validateReflectiveNote('a'.repeat(MAX_REFLECTIVE_NOTE_LENGTH)).valid,
+    true
+  );
+  assert.equal(
+    validateReflectiveNote('a'.repeat(MAX_REFLECTIVE_NOTE_LENGTH + 1)).valid,
+    false
+  );
 });

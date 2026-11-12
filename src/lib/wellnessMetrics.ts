@@ -3,6 +3,7 @@ import type {
   DailyEntry,
   DaySummaryItem,
   MindfulStreakState,
+  ReflectiveNoteEntry,
   WellnessStatistics,
 } from '../types/wellness';
 import {
@@ -29,11 +30,48 @@ export function computeSelfReportedEnergyScore(
 
 export function hasAnyRecordedMetric(entry: DailyEntry | null | undefined): boolean {
   if (!entry) return false;
+  const hasNote =
+    typeof entry.reflectiveNote === 'string' &&
+    entry.reflectiveNote.trim().length > 0;
   return (
     entry.energyRating !== null ||
     entry.steps !== null ||
-    entry.sleepMinutes !== null
+    entry.sleepMinutes !== null ||
+    hasNote
   );
+}
+
+/**
+ * Extracts and sorts all saved reflective notes chronologically by local calendar date (`YYYY-MM-DD`).
+ */
+export function getChronologicalReflectiveNotes(
+  entriesByDate: Record<string, DailyEntry>,
+  order: 'asc' | 'desc' = 'desc'
+): ReflectiveNoteEntry[] {
+  const notes: ReflectiveNoteEntry[] = [];
+
+  for (const [dateKey, entry] of Object.entries(entriesByDate)) {
+    if (!entry || !isValidDateKey(dateKey)) {
+      continue;
+    }
+    const rawNote = typeof entry.reflectiveNote === 'string' ? entry.reflectiveNote.trim() : '';
+    if (!rawNote) {
+      continue;
+    }
+    notes.push({
+      date: dateKey,
+      note: rawNote,
+      energyScore: computeSelfReportedEnergyScore(entry.energyRating),
+      sleepMinutes: entry.sleepMinutes,
+      steps: entry.steps,
+      updatedAt: entry.updatedAt,
+    });
+  }
+
+  notes.sort((a, b) =>
+    order === 'asc' ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date)
+  );
+  return notes;
 }
 
 /**

@@ -15,6 +15,7 @@ import { getSessionById } from '../../data/guidedSessions';
 import { DailyCheckInCard } from './DailyCheckInCard';
 import { HomeQuickActions } from './HomeQuickActions';
 import { MindfulStreakCard } from './MindfulStreakCard';
+import { ReflectiveNotesCard } from './ReflectiveNotesCard';
 import { ReminderBannerCard } from './ReminderBannerCard';
 import { SevenDaySummaryCard } from './SevenDaySummaryCard';
 
@@ -22,6 +23,7 @@ interface HomeViewProps {
   profile: UserProfile;
   todayDateKey: string;
   todayEntry: DailyEntry | undefined;
+  entriesByDate: Record<string, DailyEntry>;
   mindfulStreak: MindfulStreakState;
   statistics: WellnessStatistics;
   reminderSchedule: ReminderSchedule;
@@ -41,6 +43,7 @@ export function HomeView({
   profile,
   todayDateKey,
   todayEntry,
+  entriesByDate,
   mindfulStreak,
   statistics,
   reminderSchedule,
@@ -124,6 +127,11 @@ export function HomeView({
             todayEntry={todayEntry}
             focusCheckInSignal={focusCheckInSignal}
             onSaveDailyEntry={onSaveDailyEntry}
+          />
+          <ReflectiveNotesCard
+            entriesByDate={entriesByDate}
+            todayDateKey={todayDateKey}
+            onFocusCheckIn={onFocusCheckIn}
           />
         </div>
 

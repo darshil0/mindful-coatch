@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Daily reflective notes & chronological journal**:
+  - Extended `DailyEntry` (`reflectiveNote?: string | null`) and added `ReflectiveNoteEntry` (`src/types/wellness.ts`), alongside `MAX_REFLECTIVE_NOTE_LENGTH` (`500`) and `validateReflectiveNote` (`src/lib/validation.ts`).
+  - Updated `hasAnyRecordedMetric` and added `getChronologicalReflectiveNotes` (`src/lib/wellnessMetrics.ts`), and extended `WellnessStorageStore` (`src/services/storageService.ts`) to sanitize, persist, and clean up `reflectiveNote` entries in `localStorage`.
+  - Extended `DailyCheckInCard` (`src/features/home/DailyCheckInCard.tsx`) with a **Reflective note** textarea, live `0 / 500` character counter, clear action, inline validation, and saved-note preview.
+  - Added `ReflectiveNotesCard` (`src/features/home/ReflectiveNotesCard.tsx`) to `HomeView` to display saved reflective notes chronologically with **Newest first / Oldest first** ordering and same-day metric context, plus unit tests in `tests/dateAndValidation.test.ts`, `tests/wellnessMetrics.test.ts`, and `tests/storageService.test.ts`.
+- **Weekly 7-day Recharts trend visualization**:
+  - Added `recharts` (`^3.10.1`) and created `WeeklyTrendChart` (`src/features/home/WeeklyTrendChart.tsx`) inside `SevenDaySummaryCard` on `HomeView` to plot daily self-reported energy levels (`0–100` line with `connectNulls={false}` so unrecorded days remain blank gaps) alongside completed mindfulness sessions per local calendar day.
+  - Extended `DaySummaryItem` and `WellnessStatistics` (`src/types/wellness.ts`) and `computeWellnessStatistics` (`src/lib/wellnessMetrics.ts`) with `completedSessionsCount`, `completedSessionsInLast7`, and `activeDaysInLast7`, and added a **Sessions** column to the accessible **Text table** view, backed by unit tests in `tests/wellnessMetrics.test.ts`.
 - **Morning check-in & evening reflection reminders**:
   - Added pure local-time reminder evaluation and scheduling utilities (`src/lib/reminders.ts`) with customizable morning (`08:30` default) and evening (`20:30` default) times, completion-aware hiding, and per-day dismissal tracking.
   - Extended `WellnessStorageStore` (`STORAGE_KEYS.REMINDERS`), `useWellnessStore`, and `useEnvironmentState` (`nowMinutes`) to persist reminder schedules, prune expired dismissals across local calendar days, and trigger optional browser alerts (`src/hooks/useReminderNotifications.ts`) when permitted.

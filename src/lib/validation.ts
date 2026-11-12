@@ -129,3 +129,30 @@ export function validateSleepInputs(
 
   return { valid: true, value: totalMinutes };
 }
+
+export const MAX_REFLECTIVE_NOTE_LENGTH = 500;
+
+/**
+ * Validates and sanitizes an optional daily reflective note.
+ * Blank text -> `null` (not recorded). Strips unsafe ASCII control chars while preserving newlines.
+ */
+export function validateReflectiveNote(raw: string): ValidationResult<string | null> {
+  const normalized = raw
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+    .replace(/\r\n/g, '\n')
+    .trim();
+
+  if (normalized.length === 0) {
+    return { valid: true, value: null };
+  }
+
+  if (normalized.length > MAX_REFLECTIVE_NOTE_LENGTH) {
+    return {
+      valid: false,
+      error: `Reflective note must be ${MAX_REFLECTIVE_NOTE_LENGTH} characters or fewer.`,
+    };
+  }
+
+  return { valid: true, value: normalized };
+}
+

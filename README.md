@@ -7,16 +7,17 @@ Built with React, TypeScript, Vite, and Express, the app keeps personal wellness
 ## Features
 
 - Local onboarding with a preferred name and primary wellness goal
-- Daily wellness check-ins for energy, sleep, and steps on the user’s local calendar date
+- Daily wellness check-ins for energy, sleep, steps, and brief reflective notes on the user’s local calendar date
+- Chronological reflective notes journal on the Home view with newest-first and oldest-first sorting
 - Gentle morning check-in and evening reflection reminders with customizable local scheduling
-- Seven-day summary and streak tracking across recorded entries and completed sessions
+- Seven-day Recharts trend visualization (daily energy and completed mindfulness sessions), accessible text table, and Mindful Streak tracking
 - Guided sessions for mindfulness, breathing, energy resets, and sleep wind-down
 - A supportive coach experience with live Gemini AI integration and a curated demo mode fallback
 - Privacy controls for chat-history persistence and local data deletion
 
 ## Tech Stack
 
-- Frontend: React 19, TypeScript 7, Vite 8, Tailwind CSS 4
+- Frontend: React 19, TypeScript 7, Vite 8, Tailwind CSS 4, Recharts 3
 - Backend: Express 5, Node.js
 - AI: Google GenAI SDK
 - Testing: Node’s built-in test runner (`node:test`)

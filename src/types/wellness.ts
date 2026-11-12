@@ -30,6 +30,16 @@ export interface DailyEntry {
   energyRating: number | null; // 1..10 when recorded, null when missing
   steps: number | null; // nonnegative integer >= 0 when recorded, null when missing
   sleepMinutes: number | null; // 0..1440 when recorded, null when missing
+  reflectiveNote?: string | null; // optional brief daily reflection (up to 500 chars)
+  updatedAt: string;
+}
+
+export interface ReflectiveNoteEntry {
+  date: string;
+  note: string;
+  energyScore: number | null;
+  sleepMinutes: number | null;
+  steps: number | null;
   updatedAt: string;
 }
 
