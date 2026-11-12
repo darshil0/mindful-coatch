@@ -1,0 +1,6 @@
+{
+  "name": "Mindful Coach",
+  "description": "A calm, minimalist wellness coaching app featuring daily self-reported energy, sleep, and step check-ins, timed mindfulness and breathing sessions, and supportive wellness coaching.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
