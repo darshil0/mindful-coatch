@@ -185,3 +185,84 @@ test('computeMindfulStreak combines entries and sessions, deduplicates same day,
   assert.equal(brokenStreak.longestStreak, 3);
   assert.equal(brokenStreak.activeToday, false);
 });
+
+test('computeWellnessStatistics aggregates daily completedSessionsCount and preserves null energyScore in sevenDayWindow', () => {
+  const entries = {
+    '2026-11-08': {
+      date: '2026-11-08',
+      energyRating: 6,
+      steps: 4200,
+      sleepMinutes: 430,
+      updatedAt: '2026-11-08T09:00:00.000Z',
+    },
+    '2026-11-12': {
+      date: '2026-11-12',
+      energyRating: 9,
+      steps: 7100,
+      sleepMinutes: 470,
+      updatedAt: '2026-11-12T08:30:00.000Z',
+    },
+  };
+
+  const sessions = [
+    {
+      completionId: 's-old',
+      runId: 'r-old',
+      sessionId: 'mindfulness',
+      title: 'Mindfulness',
+      durationSeconds: 300,
+      completedAt: '2026-11-01T12:00:00.000Z',
+      date: '2026-11-01', // outside 7-day window (Nov 6..Nov 12)
+    },
+    {
+      completionId: 's1',
+      runId: 'r1',
+      sessionId: 'mindfulness',
+      title: 'Mindfulness',
+      durationSeconds: 300,
+      completedAt: '2026-11-10T18:00:00.000Z',
+      date: '2026-11-10', // session-only day without a daily check-in
+    },
+    {
+      completionId: 's2',
+      runId: 'r2',
+      sessionId: 'gentle-breathing',
+      title: 'Gentle breathing',
+      durationSeconds: 180,
+      completedAt: '2026-11-10T21:00:00.000Z',
+      date: '2026-11-10',
+    },
+    {
+      completionId: 's3',
+      runId: 'r3',
+      sessionId: 'energy-reset',
+      title: 'Energy reset',
+      durationSeconds: 180,
+      completedAt: '2026-11-12T15:00:00.000Z',
+      date: '2026-11-12',
+    },
+  ];
+
+  const stats = computeWellnessStatistics(entries, sessions, '2026-11-12');
+
+  assert.equal(stats.sevenDayWindow.length, 7);
+  assert.equal(stats.recordedDaysInLast7, 2);
+  assert.equal(stats.completedSessionsInLast7, 3);
+  assert.equal(stats.activeDaysInLast7, 3); // Nov 8 (entry), Nov 10 (sessions only), Nov 12 (both)
+
+  const byDate = Object.fromEntries(stats.sevenDayWindow.map((day) => [day.date, day]));
+  assert.equal(byDate['2026-11-08'].energyScore, 60);
+  assert.equal(byDate['2026-11-08'].completedSessionsCount, 0);
+
+  // Nov 10 had 2 sessions and no check-in: energyScore must stay null (never 0)
+  assert.equal(byDate['2026-11-10'].energyScore, null);
+  assert.equal(byDate['2026-11-10'].completedSessionsCount, 2);
+
+  // Nov 11 had neither check-in nor sessions
+  assert.equal(byDate['2026-11-11'].energyScore, null);
+  assert.equal(byDate['2026-11-11'].completedSessionsCount, 0);
+
+  assert.equal(byDate['2026-11-12'].energyScore, 90);
+  assert.equal(byDate['2026-11-12'].completedSessionsCount, 1);
+});
+

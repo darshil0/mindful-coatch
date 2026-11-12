@@ -181,3 +181,42 @@ test('storage persists and reconciles Mindful Streaks from daily entries and com
   store.deleteAllLocalData();
   assert.equal(mock.getItem(STORAGE_KEYS.STREAK), null);
 });
+
+test('storage persists reminder schedule, prunes stale dismissals on date change, and clears on reset', () => {
+  const mock = new MockStorage();
+  const store = new WellnessStorageStore(mock);
+
+  store.saveReminders(
+    {
+      morning: { enabled: true, time: '07:45' },
+      evening: { enabled: true, time: '21:15' },
+      browserNotifications: false,
+    },
+    {
+      '2026-11-11': { evening: true },
+      '2026-11-12': { morning: true },
+    },
+    '2026-11-12'
+  );
+
+  const hydratedToday = new WellnessStorageStore(mock).hydrate('2026-11-12');
+  assert.equal(hydratedToday.reminderSchedule.morning.time, '07:45');
+  assert.equal(hydratedToday.reminderSchedule.evening.time, '21:15');
+  assert.deepEqual(hydratedToday.reminderDismissals, {
+    '2026-11-12': { morning: true },
+  });
+
+  // On a new calendar day, previous day's dismissals are automatically pruned
+  const hydratedNextDay = new WellnessStorageStore(mock).hydrate('2026-11-13');
+  assert.deepEqual(hydratedNextDay.reminderDismissals, {});
+  assert.equal(hydratedNextDay.reminderSchedule.morning.time, '07:45');
+
+  // Corrupt JSON recovers safely to defaults
+  mock.setItem(STORAGE_KEYS.REMINDERS, '{not valid');
+  const recovered = new WellnessStorageStore(mock).loadReminders('2026-11-13');
+  assert.equal(recovered.schedule.morning.time, '08:30');
+  assert.deepEqual(recovered.dismissals, {});
+
+  store.deleteAllLocalData();
+  assert.equal(mock.getItem(STORAGE_KEYS.REMINDERS), null);
+});

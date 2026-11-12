@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { ReduceMotionSetting } from '../types/wellness';
 import { getLocalDateKey } from '../lib/dateUtils';
+import { getLocalTimeMinutes } from '../lib/reminders';
 
 export interface EnvironmentState {
   todayDateKey: string;
+  nowMinutes: number;
   isOnline: boolean;
   osPrefersReducedMotion: boolean;
   effectiveReducedMotion: boolean;
@@ -13,6 +15,7 @@ export function useEnvironmentState(
   reduceMotionPreference: ReduceMotionSetting
 ): EnvironmentState {
   const [todayDateKey, setTodayDateKey] = useState<string>(() => getLocalDateKey());
+  const [nowMinutes, setNowMinutes] = useState<number>(() => getLocalTimeMinutes());
   const [isOnline, setIsOnline] = useState<boolean>(() =>
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
@@ -22,19 +25,22 @@ export function useEnvironmentState(
       : false
   );
 
-  // Keep local calendar date fresh across midnight or tab wakeups
+  // Keep local calendar date and wall-clock minutes fresh across midnight or tab wakeups
   useEffect(() => {
-    const refreshDate = () => {
-      const nextKey = getLocalDateKey();
+    const refreshClock = () => {
+      const now = new Date();
+      const nextKey = getLocalDateKey(now);
+      const nextMinutes = getLocalTimeMinutes(now);
       setTodayDateKey((prev) => (prev === nextKey ? prev : nextKey));
+      setNowMinutes((prev) => (prev === nextMinutes ? prev : nextMinutes));
     };
-    const interval = window.setInterval(refreshDate, 30_000);
-    window.addEventListener('focus', refreshDate);
-    document.addEventListener('visibilitychange', refreshDate);
+    const interval = window.setInterval(refreshClock, 30_000);
+    window.addEventListener('focus', refreshClock);
+    document.addEventListener('visibilitychange', refreshClock);
     return () => {
       window.clearInterval(interval);
-      window.removeEventListener('focus', refreshDate);
-      document.removeEventListener('visibilitychange', refreshDate);
+      window.removeEventListener('focus', refreshClock);
+      document.removeEventListener('visibilitychange', refreshClock);
     };
   }, []);
 
@@ -72,6 +78,7 @@ export function useEnvironmentState(
 
   return {
     todayDateKey,
+    nowMinutes,
     isOnline,
     osPrefersReducedMotion,
     effectiveReducedMotion,

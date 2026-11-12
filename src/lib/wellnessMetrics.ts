@@ -172,23 +172,41 @@ export function computeWellnessStatistics(
     todayDateKey
   );
 
+  const sessionCountsByDate = new Map<string, number>();
+  for (const session of completedSessions) {
+    if (!isValidDateKey(session.date)) continue;
+    sessionCountsByDate.set(
+      session.date,
+      (sessionCountsByDate.get(session.date) ?? 0) + 1
+    );
+  }
+
   const past7Keys = getPastLocalDateKeys(7, todayDateKey);
   const sevenDayWindow: DaySummaryItem[] = past7Keys.map((date) => {
     const entry = entriesByDate[date];
     const energyRating = entry ? entry.energyRating : null;
     const steps = entry ? entry.steps : null;
     const sleepMinutes = entry ? entry.sleepMinutes : null;
+    const completedSessionsCount = sessionCountsByDate.get(date) ?? 0;
     return {
       date,
       energyRating,
       energyScore: computeSelfReportedEnergyScore(energyRating),
       steps,
       sleepMinutes,
+      completedSessionsCount,
       hasData: hasAnyRecordedMetric(entry),
     };
   });
 
   const recordedDaysInLast7 = sevenDayWindow.filter((d) => d.hasData).length;
+  const completedSessionsInLast7 = sevenDayWindow.reduce(
+    (sum, d) => sum + d.completedSessionsCount,
+    0
+  );
+  const activeDaysInLast7 = sevenDayWindow.filter(
+    (d) => d.hasData || d.completedSessionsCount > 0
+  ).length;
 
   const recordedSleepValues = sevenDayWindow
     .map((d) => d.sleepMinutes)
@@ -233,6 +251,8 @@ export function computeWellnessStatistics(
     mindfulStreak,
     sevenDayWindow,
     recordedDaysInLast7,
+    completedSessionsInLast7,
+    activeDaysInLast7,
     averageSleep7d: {
       averageMinutes: averageSleepMinutes,
       includedCount: recordedSleepValues.length,

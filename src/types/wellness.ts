@@ -39,6 +39,7 @@ export interface DaySummaryItem {
   energyScore: number | null;
   steps: number | null;
   sleepMinutes: number | null;
+  completedSessionsCount: number;
   hasData: boolean;
 }
 
@@ -59,6 +60,8 @@ export interface WellnessStatistics {
   mindfulStreak: MindfulStreakState;
   sevenDayWindow: DaySummaryItem[];
   recordedDaysInLast7: number;
+  completedSessionsInLast7: number;
+  activeDaysInLast7: number;
   averageSleep7d: {
     averageMinutes: number | null;
     includedCount: number;
@@ -111,6 +114,24 @@ export interface UserPreferences {
   reduceMotion: ReduceMotionSetting;
   acknowledgedAiNotice: boolean;
 }
+
+export type ReminderSlotId = 'morning' | 'evening';
+
+export interface ReminderSlotConfig {
+  enabled: boolean;
+  time: string;
+}
+
+export interface ReminderSchedule {
+  morning: ReminderSlotConfig;
+  evening: ReminderSlotConfig;
+  browserNotifications: boolean;
+}
+
+export type ReminderDismissalsByDate = Record<
+  string,
+  Partial<Record<ReminderSlotId, boolean>>
+>;
 
 export interface GuidedSessionStep {
   title: string;

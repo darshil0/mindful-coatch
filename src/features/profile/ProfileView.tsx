@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type {
   ReduceMotionSetting,
+  ReminderSchedule,
   UserPreferences,
   UserProfile,
   WellnessGoal,
@@ -14,11 +15,13 @@ import { RecordedStatsCard } from './RecordedStatsCard';
 interface ProfileViewProps {
   profile: UserProfile;
   preferences: UserPreferences;
+  reminderSchedule: ReminderSchedule;
   osPrefersReducedMotion: boolean;
   statistics: WellnessStatistics;
   hasAnyChatMessages: boolean;
   onUpdateProfile: (preferredName: string, primaryGoal: WellnessGoal) => void;
   onUpdatePreferences: (next: UserPreferences) => void;
+  onUpdateReminderSchedule: (next: ReminderSchedule) => void;
   onClearChatHistory: () => void;
   onDeleteAllLocalData: () => void;
 }
@@ -26,11 +29,13 @@ interface ProfileViewProps {
 export function ProfileView({
   profile,
   preferences,
+  reminderSchedule,
   osPrefersReducedMotion,
   statistics,
   hasAnyChatMessages,
   onUpdateProfile,
   onUpdatePreferences,
+  onUpdateReminderSchedule,
   onClearChatHistory,
   onDeleteAllLocalData,
 }: ProfileViewProps) {
@@ -93,10 +98,15 @@ export function ProfileView({
 
         <PrivacyAndPreferencesPanel
           preferences={preferences}
+          reminderSchedule={reminderSchedule}
           osPrefersReducedMotion={osPrefersReducedMotion}
           hasAnyChatMessages={hasAnyChatMessages}
           onToggleChatSaving={handleToggleChatSaving}
           onChangeMotionSetting={handleMotionChange}
+          onSaveReminderSchedule={(next) => {
+            onUpdateReminderSchedule(next);
+            setActionNotice('Daily reminder schedule saved.');
+          }}
           onClearChat={handleClearChat}
           onRequestDeleteAll={() => setConfirmDeleteOpen(true)}
         />

@@ -8,6 +8,7 @@ Built with React, TypeScript, Vite, and Express, the app keeps personal wellness
 
 - Local onboarding with a preferred name and primary wellness goal
 - Daily wellness check-ins for energy, sleep, and steps on the user’s local calendar date
+- Gentle morning check-in and evening reflection reminders with customizable local scheduling
 - Seven-day summary and streak tracking across recorded entries and completed sessions
 - Guided sessions for mindfulness, breathing, energy resets, and sleep wind-down
 - A supportive coach experience with live Gemini AI integration and a curated demo mode fallback
@@ -103,6 +104,7 @@ http://localhost:3000
 │   ├── App.tsx
 │   ├── components/
 │   │   ├── layout/
+│   │   ├── reminders/
 │   │   └── ui/
 │   ├── data/
 │   │   ├── demoCoachResponses.ts
@@ -117,11 +119,13 @@ http://localhost:3000
 │   ├── hooks/
 │   │   ├── useCoachChat.ts
 │   │   ├── useEnvironmentState.ts
+│   │   ├── useReminderNotifications.ts
 │   │   ├── useSessionPlayer.ts
 │   │   └── useWellnessStore.ts
 │   ├── index.css
 │   ├── lib/
 │   │   ├── dateUtils.ts
+│   │   ├── reminders.ts
 │   │   ├── sessionTimer.ts
 │   │   ├── validation.ts
 │   │   └── wellnessMetrics.ts
@@ -132,12 +136,12 @@ http://localhost:3000
 │   ├── shared/
 │   │   ├── apiTypes.ts
 │   │   └── coachSafety.ts
-│   ├── types/
-│   │   └── wellness.ts
-│   └── vite-env.d.ts
+│   └── types/
+│       └── wellness.ts
 ├── tests/
 │   ├── coachAndServer.test.ts
 │   ├── dateAndValidation.test.ts
+│   ├── reminders.test.ts
 │   ├── sessionTimer.test.ts
 │   ├── storageService.test.ts
 │   └── wellnessMetrics.test.ts

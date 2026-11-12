@@ -3,15 +3,19 @@ import type {
   DailyEntry,
   MindfulStreakState,
   NavDestination,
+  ReminderSchedule,
+  ReminderSlotId,
   UserProfile,
   WellnessStatistics,
 } from '../../types/wellness';
+import type { EvaluatedReminderState } from '../../lib/reminders';
 import { formatReadableDate, getTimeOfDayGreeting } from '../../lib/dateUtils';
 import { getGoalMetadata } from '../../data/goals';
 import { getSessionById } from '../../data/guidedSessions';
 import { DailyCheckInCard } from './DailyCheckInCard';
 import { HomeQuickActions } from './HomeQuickActions';
 import { MindfulStreakCard } from './MindfulStreakCard';
+import { ReminderBannerCard } from './ReminderBannerCard';
 import { SevenDaySummaryCard } from './SevenDaySummaryCard';
 
 interface HomeViewProps {
@@ -20,8 +24,14 @@ interface HomeViewProps {
   todayEntry: DailyEntry | undefined;
   mindfulStreak: MindfulStreakState;
   statistics: WellnessStatistics;
+  reminderSchedule: ReminderSchedule;
+  evaluatedReminder: EvaluatedReminderState;
+  effectiveReducedMotion: boolean;
   focusCheckInSignal: number;
+  onFocusCheckIn: () => void;
   onSaveDailyEntry: (entry: DailyEntry) => void;
+  onDismissReminderForToday: (slot: ReminderSlotId) => void;
+  onSaveReminderSchedule: (next: ReminderSchedule) => void;
   onNavigate: (destination: NavDestination) => void;
   onOpenSession: (sessionId: string) => void;
   onAskCoachQuestion: (question: string) => void;
@@ -33,8 +43,14 @@ export function HomeView({
   todayEntry,
   mindfulStreak,
   statistics,
+  reminderSchedule,
+  evaluatedReminder,
+  effectiveReducedMotion,
   focusCheckInSignal,
+  onFocusCheckIn,
   onSaveDailyEntry,
+  onDismissReminderForToday,
+  onSaveReminderSchedule,
   onNavigate,
   onOpenSession,
   onAskCoachQuestion,
@@ -87,6 +103,19 @@ export function HomeView({
         </div>
       </section>
 
+      {/* Gentle Morning Check-In & Evening Reflection Reminder Banner */}
+      <ReminderBannerCard
+        evaluatedReminder={evaluatedReminder}
+        schedule={reminderSchedule}
+        onMorningCheckInAction={onFocusCheckIn}
+        onEveningSessionAction={() => onOpenSession('sleep-wind-down')}
+        onEveningCoachAction={() =>
+          onAskCoachQuestion('Help me reflect briefly on my day and wind down tonight.')
+        }
+        onDismissForToday={onDismissReminderForToday}
+        onSaveSchedule={onSaveReminderSchedule}
+      />
+
       {/* Main Workspace Grid */}
       <div className="grid gap-8 lg:grid-cols-12 lg:items-start">
         <div className="space-y-8 lg:col-span-7">
@@ -107,7 +136,10 @@ export function HomeView({
             onAskCoachQuestion={onAskCoachQuestion}
             onNavigate={onNavigate}
           />
-          <SevenDaySummaryCard statistics={statistics} />
+          <SevenDaySummaryCard
+            statistics={statistics}
+            effectiveReducedMotion={effectiveReducedMotion}
+          />
         </div>
       </div>
     </div>

@@ -1,23 +1,32 @@
 import React from 'react';
 import { Shield, Trash2 } from 'lucide-react';
-import type { ReduceMotionSetting, UserPreferences } from '../../types/wellness';
+import type {
+  ReduceMotionSetting,
+  ReminderSchedule,
+  UserPreferences,
+} from '../../types/wellness';
+import { ReminderScheduleEditor } from '../../components/reminders/ReminderScheduleEditor';
 
 interface PrivacyAndPreferencesPanelProps {
   preferences: UserPreferences;
+  reminderSchedule: ReminderSchedule;
   osPrefersReducedMotion: boolean;
   hasAnyChatMessages: boolean;
   onToggleChatSaving: (checked: boolean) => void;
   onChangeMotionSetting: (setting: ReduceMotionSetting) => void;
+  onSaveReminderSchedule: (next: ReminderSchedule) => void;
   onClearChat: () => void;
   onRequestDeleteAll: () => void;
 }
 
 export function PrivacyAndPreferencesPanel({
   preferences,
+  reminderSchedule,
   osPrefersReducedMotion,
   hasAnyChatMessages,
   onToggleChatSaving,
   onChangeMotionSetting,
+  onSaveReminderSchedule,
   onClearChat,
   onRequestDeleteAll,
 }: PrivacyAndPreferencesPanelProps) {
@@ -95,6 +104,22 @@ export function PrivacyAndPreferencesPanel({
             ))}
           </div>
         </fieldset>
+
+        {/* Daily reminders schedule */}
+        <div className="mt-6 border-t border-[#ECEAE3] pt-5">
+          <h3 className="text-sm font-medium text-[#1E2421]">
+            Daily reminders
+          </h3>
+          <p className="mt-1 mb-3 text-xs leading-relaxed text-[#5C6762]">
+            Set gentle local times for your morning check-in and evening reflection
+            reminders.
+          </p>
+          <ReminderScheduleEditor
+            schedule={reminderSchedule}
+            onSaveSchedule={onSaveReminderSchedule}
+            idPrefix="profile-reminder"
+          />
+        </div>
       </section>
 
       {/* Privacy & Local Data Controls */}

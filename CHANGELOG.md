@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Morning check-in & evening reflection reminders**:
+  - Added pure local-time reminder evaluation and scheduling utilities (`src/lib/reminders.ts`) with customizable morning (`08:30` default) and evening (`20:30` default) times, completion-aware hiding, and per-day dismissal tracking.
+  - Extended `WellnessStorageStore` (`STORAGE_KEYS.REMINDERS`), `useWellnessStore`, and `useEnvironmentState` (`nowMinutes`) to persist reminder schedules, prune expired dismissals across local calendar days, and trigger optional browser alerts (`src/hooks/useReminderNotifications.ts`) when permitted.
+  - Added `ReminderBannerCard` on `HomeView` and a shared `ReminderScheduleEditor` available on both `HomeView` and `ProfileView` Preferences, plus unit tests in `tests/reminders.test.ts` and `tests/storageService.test.ts`.
+
 ### Fixed
 - Corrected local-date handling so entries and streak windows are based on the user's actual calendar day rather than UTC-shifted values.
 - Fixed validation logic to preserve explicitly recorded zero values for steps and sleep while rejecting invalid negatives and out-of-range numbers.

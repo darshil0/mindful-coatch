@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
 import type { WellnessStatistics } from '../../types/wellness';
-import {
-  formatDayNumber,
-  formatReadableDate,
-  formatShortDayLabel,
-} from '../../lib/dateUtils';
+import { formatReadableDate } from '../../lib/dateUtils';
 import { formatSleepMinutes } from '../../lib/wellnessMetrics';
+import { WeeklyTrendChart } from './WeeklyTrendChart';
 
 interface SevenDaySummaryCardProps {
   statistics: WellnessStatistics;
+  effectiveReducedMotion: boolean;
 }
 
-export function SevenDaySummaryCard({ statistics }: SevenDaySummaryCardProps) {
+export function SevenDaySummaryCard({
+  statistics,
+  effectiveReducedMotion,
+}: SevenDaySummaryCardProps) {
   const [summaryViewMode, setSummaryViewMode] = useState<'visual' | 'table'>('visual');
 
   return (
@@ -28,11 +29,11 @@ export function SevenDaySummaryCard({ statistics }: SevenDaySummaryCardProps) {
             id="seven-day-summary-heading"
             className="mt-1 font-display text-xl font-medium text-[#1E2421]"
           >
-            Seven-day summary
+            Weekly trend &amp; summary
           </h2>
         </div>
 
-        {statistics.recordedDaysInLast7 > 0 && (
+        {statistics.activeDaysInLast7 > 0 && (
           <div
             role="group"
             aria-label="Summary display format"
@@ -66,71 +67,37 @@ export function SevenDaySummaryCard({ statistics }: SevenDaySummaryCardProps) {
         )}
       </div>
 
-      {statistics.recordedDaysInLast7 === 0 ? (
+      {statistics.activeDaysInLast7 === 0 ? (
         <div className="mt-4 rounded-xl bg-[#FAF9F6] p-4 text-sm leading-relaxed text-[#4A5550]">
-          No entries recorded in the past 7 local days yet. Save today’s energy, sleep,
-          or steps to see your actual recorded history here. Missing days are always left
-          blank rather than treated as zero.
+          No check-ins or completed sessions recorded in the past 7 local days yet. Save
+          today’s energy or complete a guided mindfulness session to view your weekly
+          trend here. Unrecorded energy days are always left blank rather than treated as
+          zero.
         </div>
       ) : (
         <div className="mt-4 space-y-4">
           <p className="text-xs text-[#5C6762]">
-            Showing {statistics.recordedDaysInLast7} recorded{' '}
-            {statistics.recordedDaysInLast7 === 1 ? 'day' : 'days'} out of the past 7 days
-            · Unrecorded days are marked “—”.
+            Showing {statistics.activeDaysInLast7} active{' '}
+            {statistics.activeDaysInLast7 === 1 ? 'day' : 'days'} across the past 7 days
+            · Gaps in energy indicate unrecorded days.
           </p>
 
           {summaryViewMode === 'visual' && (
-            <div aria-hidden="true" className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between text-xs text-[#4A5550] mb-2">
-                  <span>Self-reported energy (out of 100)</span>
-                  {statistics.averageEnergy7d.averageScore !== null && (
-                    <span className="font-mono tabular-nums">
-                      Avg {statistics.averageEnergy7d.averageScore} (n=
-                      {statistics.averageEnergy7d.includedCount})
-                    </span>
-                  )}
-                </div>
-                <div className="grid grid-cols-7 gap-1.5 items-end h-28 pt-2">
-                  {statistics.sevenDayWindow.map((day) => {
-                    const heightPct =
-                      day.energyScore !== null ? Math.max(12, day.energyScore) : 0;
-                    return (
-                      <div
-                        key={day.date}
-                        className="flex flex-col items-center h-full justify-end gap-1"
-                      >
-                        <span className="font-mono text-[10px] text-[#5C6762] tabular-nums">
-                          {day.energyScore !== null ? day.energyScore : '—'}
-                        </span>
-                        <div className="w-full flex-1 flex items-end rounded-md bg-[#F2F0EA] p-0.5">
-                          {day.energyScore !== null ? (
-                            <div
-                              style={{ height: `${heightPct}%` }}
-                              className="w-full rounded-xs bg-[#2F5D50]"
-                            />
-                          ) : (
-                            <div className="w-full h-full rounded-xs border border-dashed border-[#D5D3CA]" />
-                          )}
-                        </div>
-                        <span className="text-[10px] font-medium text-[#4A5550]">
-                          {formatShortDayLabel(day.date).slice(0, 2)}{' '}
-                          {formatDayNumber(day.date)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
+            <WeeklyTrendChart
+              sevenDayWindow={statistics.sevenDayWindow}
+              averageEnergyScore={statistics.averageEnergy7d.averageScore}
+              energyCount={statistics.averageEnergy7d.includedCount}
+              completedSessionsInLast7={statistics.completedSessionsInLast7}
+              effectiveReducedMotion={effectiveReducedMotion}
+            />
           )}
 
           {/* Accessible Text Table (always present in DOM for screen readers; visible when 'table' selected) */}
           <div className={summaryViewMode === 'table' ? 'overflow-x-auto' : 'sr-only'}>
             <table className="w-full text-left text-xs border-collapse">
               <caption className="sr-only">
-                Recorded daily check-ins over the past seven local calendar days
+                Recorded daily energy, completed mindfulness sessions, sleep, and steps
+                over the past seven local calendar days
               </caption>
               <thead>
                 <tr className="border-b border-[#E6E4DD] text-[#5C6762]">
@@ -139,6 +106,9 @@ export function SevenDaySummaryCard({ statistics }: SevenDaySummaryCardProps) {
                   </th>
                   <th scope="col" className="py-2 px-2 font-medium">
                     Energy
+                  </th>
+                  <th scope="col" className="py-2 px-2 font-medium">
+                    Sessions
                   </th>
                   <th scope="col" className="py-2 px-2 font-medium">
                     Sleep
@@ -161,6 +131,9 @@ export function SevenDaySummaryCard({ statistics }: SevenDaySummaryCardProps) {
                       {day.energyScore !== null
                         ? `${day.energyScore}/100`
                         : 'Not recorded'}
+                    </td>
+                    <td className="py-2 px-2 font-mono text-[#1E2421] tabular-nums whitespace-nowrap">
+                      {day.completedSessionsCount}
                     </td>
                     <td className="py-2 px-2 font-mono text-[#1E2421] tabular-nums whitespace-nowrap">
                       {formatSleepMinutes(day.sleepMinutes)}

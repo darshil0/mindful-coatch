@@ -4,11 +4,18 @@ import type {
   DailyEntry,
   MindfulStreakState,
   ReduceMotionSetting,
+  ReminderDismissalsByDate,
+  ReminderSchedule,
   UserPreferences,
   UserProfile,
 } from '../types/wellness';
 import { getLocalDateKey, isValidDateKey } from '../lib/dateUtils';
 import { computeMindfulStreak } from '../lib/wellnessMetrics';
+import {
+  DEFAULT_REMINDER_SCHEDULE,
+  pruneDismissalsToDate,
+  sanitizeReminderSchedule,
+} from '../lib/reminders';
 import { isValidWellnessGoal, validatePreferredName } from '../lib/validation';
 
 export interface StorageLike {
@@ -23,6 +30,7 @@ export const STORAGE_KEYS = {
   ENTRIES: 'mindful_coach.v1.entries',
   SESSIONS: 'mindful_coach.v1.sessions',
   STREAK: 'mindful_coach.v1.streak',
+  REMINDERS: 'mindful_coach.v1.reminders',
   PREFERENCES: 'mindful_coach.v1.preferences',
   CHAT: 'mindful_coach.v1.chat',
 } as const;
@@ -40,6 +48,8 @@ export interface HydratedWellnessState {
   entriesByDate: Record<string, DailyEntry>;
   completedSessions: CompletedSessionRecord[];
   mindfulStreak: MindfulStreakState;
+  reminderSchedule: ReminderSchedule;
+  reminderDismissals: ReminderDismissalsByDate;
   preferences: UserPreferences;
   chatMessages: ChatMessage[];
   storageAvailable: boolean;
@@ -146,6 +156,8 @@ export class WellnessStorageStore {
       completedSessions,
       todayDateKey
     );
+    const { schedule: reminderSchedule, dismissals: reminderDismissals } =
+      this.loadReminders(todayDateKey);
     const chatMessages = preferences.saveChatHistory ? this.loadChatMessages() : [];
 
     // Ensure persisted chat is removed if saveChatHistory is disabled
@@ -162,6 +174,8 @@ export class WellnessStorageStore {
       entriesByDate,
       completedSessions,
       mindfulStreak,
+      reminderSchedule,
+      reminderDismissals,
       preferences,
       chatMessages,
       storageAvailable: this.persistentAvailable,
@@ -419,6 +433,51 @@ export class WellnessStorageStore {
     if (!preferences.saveChatHistory) {
       this.removeRaw(STORAGE_KEYS.CHAT);
     }
+  }
+
+  public loadReminders(todayDateKey: string = getLocalDateKey()): {
+    schedule: ReminderSchedule;
+    dismissals: ReminderDismissalsByDate;
+  } {
+    const raw = this.readRaw(STORAGE_KEYS.REMINDERS);
+    const fallback = {
+      schedule: sanitizeReminderSchedule(DEFAULT_REMINDER_SCHEDULE),
+      dismissals: {} as ReminderDismissalsByDate,
+    };
+    if (!raw) return fallback;
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return fallback;
+      }
+      const schedule = sanitizeReminderSchedule(parsed.schedule);
+      const rawDismissals =
+        parsed.dismissals &&
+        typeof parsed.dismissals === 'object' &&
+        !Array.isArray(parsed.dismissals)
+          ? (parsed.dismissals as ReminderDismissalsByDate)
+          : {};
+      return {
+        schedule,
+        dismissals: pruneDismissalsToDate(rawDismissals, todayDateKey),
+      };
+    } catch {
+      return fallback;
+    }
+  }
+
+  public saveReminders(
+    schedule: ReminderSchedule,
+    dismissals: ReminderDismissalsByDate,
+    todayDateKey: string = getLocalDateKey()
+  ): void {
+    this.writeRaw(
+      STORAGE_KEYS.REMINDERS,
+      JSON.stringify({
+        schedule: sanitizeReminderSchedule(schedule),
+        dismissals: pruneDismissalsToDate(dismissals, todayDateKey),
+      })
+    );
   }
 
   public loadChatMessages(): ChatMessage[] {

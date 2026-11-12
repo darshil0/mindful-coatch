@@ -4,6 +4,9 @@ import type {
   CompletedSessionRecord,
   DailyEntry,
   MindfulStreakState,
+  ReminderDismissalsByDate,
+  ReminderSchedule,
+  ReminderSlotId,
   UserPreferences,
   UserProfile,
   WellnessGoal,
@@ -18,6 +21,11 @@ import {
   computeWellnessStatistics,
   hasAnyRecordedMetric,
 } from '../lib/wellnessMetrics';
+import {
+  DEFAULT_REMINDER_SCHEDULE,
+  pruneDismissalsToDate,
+  sanitizeReminderSchedule,
+} from '../lib/reminders';
 import { getLocalDateKey } from '../lib/dateUtils';
 import { appendUniqueCompletion } from '../lib/sessionTimer';
 
@@ -26,6 +34,8 @@ export interface WellnessStoreHookResult {
   entriesByDate: Record<string, DailyEntry>;
   completedSessions: CompletedSessionRecord[];
   mindfulStreak: MindfulStreakState;
+  reminderSchedule: ReminderSchedule;
+  reminderDismissals: ReminderDismissalsByDate;
   preferences: UserPreferences;
   chatMessages: ChatMessage[];
   storageAvailable: boolean;
@@ -34,6 +44,8 @@ export interface WellnessStoreHookResult {
   completeOnboarding: (preferredName: string, primaryGoal: WellnessGoal) => void;
   saveDailyEntry: (entry: DailyEntry) => void;
   recordSessionCompletion: (record: CompletedSessionRecord) => void;
+  updateReminderSchedule: (nextSchedule: ReminderSchedule) => void;
+  dismissReminderForToday: (slot: ReminderSlotId, todayDateKey?: string) => void;
   appendChatMessages: (added: ChatMessage[]) => void;
   clearChatHistory: () => void;
   updateProfile: (preferredName: string, primaryGoal: WellnessGoal) => void;
@@ -83,9 +95,23 @@ export function useWellnessStore(): WellnessStoreHookResult {
   const [mindfulStreak, setMindfulStreak] = useState<MindfulStreakState>(
     initialHydrated.mindfulStreak
   );
+  const [reminderSchedule, setReminderSchedule] = useState<ReminderSchedule>(
+    initialHydrated.reminderSchedule
+  );
+  const [reminderDismissals, setReminderDismissals] = useState<ReminderDismissalsByDate>(
+    initialHydrated.reminderDismissals
+  );
   const [preferences, setPreferences] = useState<UserPreferences>(
     initialHydrated.preferences
   );
+
+  const reminderScheduleRef = useRef<ReminderSchedule>(initialHydrated.reminderSchedule);
+  reminderScheduleRef.current = reminderSchedule;
+
+  const reminderDismissalsRef = useRef<ReminderDismissalsByDate>(
+    initialHydrated.reminderDismissals
+  );
+  reminderDismissalsRef.current = reminderDismissals;
 
   const entriesRef = useRef<Record<string, DailyEntry>>(initialHydrated.entriesByDate);
   entriesRef.current = entriesByDate;
@@ -232,14 +258,52 @@ export function useWellnessStore(): WellnessStoreHookResult {
     syncStorageHealth();
   }, [store, syncStorageHealth]);
 
+  const updateReminderSchedule = useCallback(
+    (nextSchedule: ReminderSchedule) => {
+      const sanitized = sanitizeReminderSchedule(nextSchedule);
+      reminderScheduleRef.current = sanitized;
+      setReminderSchedule(sanitized);
+      store.saveReminders(
+        sanitized,
+        reminderDismissalsRef.current,
+        getLocalDateKey()
+      );
+      syncStorageHealth();
+    },
+    [store, syncStorageHealth]
+  );
+
+  const dismissReminderForToday = useCallback(
+    (slot: ReminderSlotId, todayDateKey: string = getLocalDateKey()) => {
+      const pruned = pruneDismissalsToDate(reminderDismissalsRef.current, todayDateKey);
+      const next: ReminderDismissalsByDate = {
+        ...pruned,
+        [todayDateKey]: {
+          ...(pruned[todayDateKey] ?? {}),
+          [slot]: true,
+        },
+      };
+      reminderDismissalsRef.current = next;
+      setReminderDismissals(next);
+      store.saveReminders(reminderScheduleRef.current, next, todayDateKey);
+      syncStorageHealth();
+    },
+    [store, syncStorageHealth]
+  );
+
   const deleteAllLocalData = useCallback(() => {
     store.deleteAllLocalData();
     entriesRef.current = {};
     sessionsRef.current = [];
+    const defaultSchedule = sanitizeReminderSchedule(DEFAULT_REMINDER_SCHEDULE);
+    reminderScheduleRef.current = defaultSchedule;
+    reminderDismissalsRef.current = {};
     setProfile(null);
     setEntriesByDate({});
     setCompletedSessions([]);
     setMindfulStreak(computeMindfulStreak({}, [], getLocalDateKey()));
+    setReminderSchedule(defaultSchedule);
+    setReminderDismissals({});
     setPreferences({ ...DEFAULT_PREFERENCES });
     setChatMessages([]);
     syncStorageHealth();
@@ -256,6 +320,8 @@ export function useWellnessStore(): WellnessStoreHookResult {
     entriesByDate,
     completedSessions,
     mindfulStreak,
+    reminderSchedule,
+    reminderDismissals,
     preferences,
     chatMessages,
     storageAvailable,
@@ -264,6 +330,8 @@ export function useWellnessStore(): WellnessStoreHookResult {
     completeOnboarding,
     saveDailyEntry,
     recordSessionCompletion,
+    updateReminderSchedule,
+    dismissReminderForToday,
     appendChatMessages,
     clearChatHistory,
     updateProfile,

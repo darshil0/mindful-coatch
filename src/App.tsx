@@ -7,6 +7,8 @@ import React, { useMemo, useState } from 'react';
 import type { NavDestination, WellnessGoal } from './types/wellness';
 import { useWellnessStore } from './hooks/useWellnessStore';
 import { useEnvironmentState } from './hooks/useEnvironmentState';
+import { useReminderNotifications } from './hooks/useReminderNotifications';
+import { evaluateReminderState } from './lib/reminders';
 import { AppShell } from './components/layout/AppShell';
 import { OnboardingFlow } from './features/onboarding/OnboardingFlow';
 import { HomeView } from './features/home/HomeView';
@@ -26,6 +28,32 @@ export default function App() {
   const statistics = useMemo(
     () => store.computeStatistics(env.todayDateKey),
     [store, env.todayDateKey]
+  );
+
+  const evaluatedReminder = useMemo(
+    () =>
+      evaluateReminderState({
+        schedule: store.reminderSchedule,
+        todayDateKey: env.todayDateKey,
+        nowMinutes: env.nowMinutes,
+        todayHasEntry: statistics.mindfulStreak.todayHasEntry,
+        todayHasSession: statistics.mindfulStreak.todayHasSession,
+        dismissals: store.reminderDismissals,
+      }),
+    [
+      store.reminderSchedule,
+      store.reminderDismissals,
+      env.todayDateKey,
+      env.nowMinutes,
+      statistics.mindfulStreak.todayHasEntry,
+      statistics.mindfulStreak.todayHasSession,
+    ]
+  );
+
+  useReminderNotifications(
+    store.profile ? evaluatedReminder.dueReminder : null,
+    env.todayDateKey,
+    store.reminderSchedule.browserNotifications
   );
 
   const handleCompleteOnboarding = (preferredName: string, primaryGoal: WellnessGoal) => {
@@ -69,8 +97,16 @@ export default function App() {
           todayEntry={store.entriesByDate[env.todayDateKey]}
           mindfulStreak={statistics.mindfulStreak}
           statistics={statistics}
+          reminderSchedule={store.reminderSchedule}
+          evaluatedReminder={evaluatedReminder}
+          effectiveReducedMotion={env.effectiveReducedMotion}
           focusCheckInSignal={focusCheckInSignal}
+          onFocusCheckIn={() => setFocusCheckInSignal((n) => n + 1)}
           onSaveDailyEntry={store.saveDailyEntry}
+          onDismissReminderForToday={(slot) =>
+            store.dismissReminderForToday(slot, env.todayDateKey)
+          }
+          onSaveReminderSchedule={store.updateReminderSchedule}
           onNavigate={setActiveDestination}
           onOpenSession={(sessionId) => {
             setPendingSessionId(sessionId);
@@ -113,11 +149,13 @@ export default function App() {
         <ProfileView
           profile={store.profile}
           preferences={store.preferences}
+          reminderSchedule={store.reminderSchedule}
           osPrefersReducedMotion={env.osPrefersReducedMotion}
           statistics={statistics}
           hasAnyChatMessages={store.chatMessages.length > 0}
           onUpdateProfile={store.updateProfile}
           onUpdatePreferences={store.updatePreferences}
+          onUpdateReminderSchedule={store.updateReminderSchedule}
           onClearChatHistory={store.clearChatHistory}
           onDeleteAllLocalData={handleDeleteAllLocalData}
         />
