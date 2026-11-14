@@ -105,6 +105,42 @@ export interface WellnessStatistics {
   };
 }
 
+export interface WeeklyProgressHighlight {
+  id: 'peak-energy' | 'best-sleep' | 'top-steps' | 'sessions' | 'reflections';
+  label: string;
+  value: string;
+  detail: string;
+}
+
+export interface WeeklyProgressReport {
+  periodStart: string;
+  periodEnd: string;
+  generatedAt: string;
+  preferredName: string;
+  primaryGoal: WellnessGoal;
+  hasAnyActivity: boolean;
+  headline: string;
+  narrativeSummary: string;
+  activeDaysInLast7: number;
+  recordedDaysInLast7: number;
+  completedSessionsInLast7: number;
+  reflectiveNotesInLast7: number;
+  weeklyScore: WeeklyWellnessScore;
+  streak: MindfulStreakState;
+  averages: {
+    energyRating: number | null;
+    energyScore: number | null;
+    energyDays: number;
+    sleepMinutes: number | null;
+    sleepDays: number;
+    steps: number | null;
+    stepsDays: number;
+  };
+  highlights: WeeklyProgressHighlight[];
+  nextWeekFocus: string[];
+  plainTextReport: string;
+}
+
 export interface CompletedSessionRecord {
   completionId: string;
   runId: string;

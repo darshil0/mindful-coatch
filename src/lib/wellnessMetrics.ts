@@ -4,11 +4,17 @@ import type {
   DaySummaryItem,
   MindfulStreakState,
   ReflectiveNoteEntry,
+  WeeklyProgressHighlight,
+  WeeklyProgressReport,
   WeeklyWellnessScore,
   WeeklyWellnessScoreComponent,
+  WellnessGoal,
   WellnessStatistics,
 } from '../types/wellness';
+import { getGoalMetadata } from '../data/goals';
 import {
+  formatReadableDate,
+  getLocalDateKey,
   getPastLocalDateKeys,
   isValidDateKey,
   shiftLocalDateKey,
@@ -454,3 +460,303 @@ export function computeWellnessStatistics(
     },
   };
 }
+
+function getGoalNextStepSuggestion(
+  goal: WellnessGoal,
+  statistics: WellnessStatistics
+): string {
+  switch (goal) {
+    case 'sleep':
+      if (statistics.averageSleep7d.includedCount === 0) {
+        return 'Try logging sleep hours on 2 or 3 mornings next week to spot how bedtime timing affects your energy.';
+      }
+      if (
+        statistics.averageSleep7d.averageMinutes !== null &&
+        statistics.averageSleep7d.averageMinutes < 420
+      ) {
+        return 'Your recorded sleep averaged under 7 hours—experiment with starting an evening wind-down cue 15 minutes earlier.';
+      }
+      return 'Keep protecting a consistent evening wind-down cue to support steady restorative sleep.';
+    case 'stress':
+      if (statistics.completedSessionsInLast7 === 0) {
+        return 'Try one 3-to-5 minute Gentle breathing or Mindfulness session between daytime tasks next week.';
+      }
+      return 'Continue pairing short breathing pauses with daily check-ins to catch tension early.';
+    case 'energy':
+      if (statistics.averageEnergy7d.includedCount === 0) {
+        return 'Record a quick 1–10 energy rating on a few days next week to see which sleep or movement habits lift your focus.';
+      }
+      return 'Notice which days yielded your steadier energy scores and repeat one simple pacing or daylight habit from them.';
+    case 'weight':
+      if (statistics.averageSteps7d.includedCount === 0) {
+        return 'Add optional step counts on walking days to observe comfortable movement patterns without rigid targets.';
+      }
+      return 'Build on enjoyable, unhurried movement and regular meal-and-rest check-ins rather than strict daily numbers.';
+  }
+}
+
+/**
+ * Generates a structured 7-day progress report directly from the computed WellnessStatistics engine.
+ * Never fabricates missing data or treats unrecorded days as zero.
+ */
+export function buildWeeklyProgressReport(params: {
+  statistics: WellnessStatistics;
+  preferredName: string;
+  primaryGoal: WellnessGoal;
+  entriesByDate?: Record<string, DailyEntry>;
+  generatedAt?: string;
+}): WeeklyProgressReport {
+  const {
+    statistics,
+    preferredName,
+    primaryGoal,
+    entriesByDate = {},
+    generatedAt = new Date().toISOString(),
+  } = params;
+
+  const fallbackEnd = getLocalDateKey();
+  const periodStart =
+    statistics.sevenDayWindow[0]?.date ?? shiftLocalDateKey(fallbackEnd, -6);
+  const periodEnd =
+    statistics.sevenDayWindow[statistics.sevenDayWindow.length - 1]?.date ??
+    fallbackEnd;
+
+  const reflectiveNotesInLast7 = statistics.sevenDayWindow.filter((day) => {
+    const note = entriesByDate[day.date]?.reflectiveNote;
+    return typeof note === 'string' && note.trim().length > 0;
+  }).length;
+
+  const hasAnyActivity = statistics.activeDaysInLast7 > 0;
+  const goalLabel = getGoalMetadata(primaryGoal).label;
+
+  const headline = !hasAnyActivity
+    ? 'No activity recorded in this 7-day window yet'
+    : statistics.weeklyWellnessScore.score !== null
+      ? `${statistics.weeklyWellnessScore.tierLabel} · ${statistics.activeDaysInLast7} of 7 active days`
+      : `${statistics.activeDaysInLast7} of 7 active days recorded`;
+
+  const highlights: WeeklyProgressHighlight[] = [];
+
+  const energyDays = statistics.sevenDayWindow.filter(
+    (d): d is DaySummaryItem & { energyScore: number } => d.energyScore !== null
+  );
+  if (energyDays.length > 0) {
+    const peakEnergy = energyDays.reduce((best, cur) =>
+      cur.energyScore >= best.energyScore ? cur : best
+    );
+    highlights.push({
+      id: 'peak-energy',
+      label: 'Peak energy day',
+      value: `${peakEnergy.energyScore} / 100`,
+      detail: `${formatReadableDate(peakEnergy.date)} (${peakEnergy.energyRating}/10 self-reported)`,
+    });
+  }
+
+  const sleepDays = statistics.sevenDayWindow.filter(
+    (d): d is DaySummaryItem & { sleepMinutes: number } => d.sleepMinutes !== null
+  );
+  if (sleepDays.length > 0) {
+    const bestSleep = sleepDays.reduce((best, cur) => {
+      const curScore = scoreSleepMinutesForWellness(cur.sleepMinutes);
+      const bestScore = scoreSleepMinutesForWellness(best.sleepMinutes);
+      if (curScore > bestScore) return cur;
+      if (curScore === bestScore && cur.date > best.date) return cur;
+      return best;
+    });
+    highlights.push({
+      id: 'best-sleep',
+      label: 'Most restorative sleep',
+      value: formatSleepMinutes(bestSleep.sleepMinutes),
+      detail: formatReadableDate(bestSleep.date),
+    });
+  }
+
+  const stepDays = statistics.sevenDayWindow.filter(
+    (d): d is DaySummaryItem & { steps: number } => d.steps !== null
+  );
+  if (stepDays.length > 0) {
+    const topSteps = stepDays.reduce((best, cur) =>
+      cur.steps >= best.steps ? cur : best
+    );
+    highlights.push({
+      id: 'top-steps',
+      label: 'Highest movement day',
+      value: formatStepsCount(topSteps.steps),
+      detail: formatReadableDate(topSteps.date),
+    });
+  }
+
+  if (statistics.completedSessionsInLast7 > 0) {
+    highlights.push({
+      id: 'sessions',
+      label: 'Guided sessions',
+      value: `${statistics.completedSessionsInLast7} completed`,
+      detail: `${statistics.totalCompletedSessions} total completed overall`,
+    });
+  }
+
+  if (reflectiveNotesInLast7 > 0) {
+    highlights.push({
+      id: 'reflections',
+      label: 'Journal reflections',
+      value: `${reflectiveNotesInLast7} ${reflectiveNotesInLast7 === 1 ? 'note' : 'notes'}`,
+      detail: 'Recorded in this 7-day window',
+    });
+  }
+
+  // Build narrative summary strictly from recorded statistics
+  let narrativeSummary: string;
+  if (!hasAnyActivity) {
+    narrativeSummary = `Between ${formatReadableDate(periodStart)} and ${formatReadableDate(periodEnd)}, no daily check-ins or guided sessions were logged yet. Missing days are never estimated or penalized—save a check-in or complete a short guided session whenever you feel ready to populate your weekly summary.`;
+  } else {
+    const parts: string[] = [];
+    parts.push(
+      `Across ${formatReadableDate(periodStart)}–${formatReadableDate(periodEnd)}, you stayed active on ${statistics.activeDaysInLast7} of 7 days (${statistics.recordedDaysInLast7} ${statistics.recordedDaysInLast7 === 1 ? 'check-in' : 'check-ins'} and ${statistics.completedSessionsInLast7} guided ${statistics.completedSessionsInLast7 === 1 ? 'session' : 'sessions'}).`
+    );
+
+    if (statistics.weeklyWellnessScore.score !== null) {
+      parts.push(
+        `Your weekly wellness score is ${statistics.weeklyWellnessScore.score}/100 (${statistics.weeklyWellnessScore.tierLabel}), based on ${statistics.weeklyWellnessScore.recordedCategoriesCount} recorded input ${statistics.weeklyWellnessScore.recordedCategoriesCount === 1 ? 'category' : 'categories'}.`
+      );
+    }
+
+    const metricSegments: string[] = [];
+    if (statistics.averageEnergy7d.averageScore !== null) {
+      metricSegments.push(
+        `energy averaged ${statistics.averageEnergy7d.averageScore}/100 across ${statistics.averageEnergy7d.includedCount} ${statistics.averageEnergy7d.includedCount === 1 ? 'day' : 'days'}`
+      );
+    }
+    if (statistics.averageSleep7d.averageMinutes !== null) {
+      metricSegments.push(
+        `sleep averaged ${formatSleepMinutes(statistics.averageSleep7d.averageMinutes)} over ${statistics.averageSleep7d.includedCount} ${statistics.averageSleep7d.includedCount === 1 ? 'night' : 'nights'}`
+      );
+    }
+    if (statistics.averageSteps7d.averageSteps !== null) {
+      metricSegments.push(
+        `movement averaged ${statistics.averageSteps7d.averageSteps.toLocaleString('en-US')} steps across ${statistics.averageSteps7d.includedCount} ${statistics.averageSteps7d.includedCount === 1 ? 'day' : 'days'}`
+      );
+    }
+
+    if (metricSegments.length > 0) {
+      parts.push(`From your recorded entries, ${metricSegments.join('; ')}.`);
+    }
+
+    if (statistics.mindfulStreak.currentStreak > 0) {
+      parts.push(
+        `You currently hold a ${statistics.mindfulStreak.currentStreak}-day Mindful Streak (personal best: ${statistics.mindfulStreak.longestStreak} ${statistics.mindfulStreak.longestStreak === 1 ? 'day' : 'days'}).`
+      );
+    }
+
+    narrativeSummary = parts.join(' ');
+  }
+
+  const nextWeekFocus: string[] = [];
+  nextWeekFocus.push(getGoalNextStepSuggestion(primaryGoal, statistics));
+
+  if (!hasAnyActivity) {
+    nextWeekFocus.push(
+      'Start small with one 1–10 energy rating or one 3-minute guided session today.'
+    );
+  } else {
+    const missingCategories: string[] = [];
+    if (statistics.averageEnergy7d.includedCount === 0) missingCategories.push('energy');
+    if (statistics.averageSleep7d.includedCount === 0) missingCategories.push('sleep');
+    if (statistics.averageSteps7d.includedCount === 0) missingCategories.push('steps');
+
+    if (missingCategories.length > 0) {
+      nextWeekFocus.push(
+        `Optional: try logging ${missingCategories.join(' or ')} once or twice next week if helpful—unrecorded fields always stay neutral.`
+      );
+    } else if (statistics.activeDaysInLast7 < 5) {
+      nextWeekFocus.push(
+        `Aim for ${Math.min(7, statistics.activeDaysInLast7 + 1)}–${Math.min(7, statistics.activeDaysInLast7 + 2)} active check-in or session days next week using your morning or evening reminders.`
+      );
+    } else {
+      nextWeekFocus.push(
+        'Your 7-day consistency is strong—keep routines light and flexible so they stay effortless.'
+      );
+    }
+
+    if (reflectiveNotesInLast7 === 0) {
+      nextWeekFocus.push(
+        'Add a brief one-sentence reflective note on a check-in day to capture what helped most.'
+      );
+    }
+  }
+
+  const plainLines: string[] = [
+    `MINDFUL COACH — WEEKLY PROGRESS REPORT`,
+    `Period: ${formatReadableDate(periodStart)} – ${formatReadableDate(periodEnd)} (${periodStart} to ${periodEnd})`,
+    `Prepared for: ${preferredName} | Primary focus: ${goalLabel}`,
+    `Status: ${headline}`,
+    ``,
+    `SUMMARY`,
+    narrativeSummary,
+    ``,
+    `7-DAY METRICS`,
+    `- Weekly wellness score: ${
+      statistics.weeklyWellnessScore.score !== null
+        ? `${statistics.weeklyWellnessScore.score}/100 (${statistics.weeklyWellnessScore.tierLabel})`
+        : 'Not enough recorded data yet'
+    }`,
+    `- Active days: ${statistics.activeDaysInLast7} of 7 (${statistics.recordedDaysInLast7} check-in ${statistics.recordedDaysInLast7 === 1 ? 'day' : 'days'}, ${statistics.completedSessionsInLast7} guided ${statistics.completedSessionsInLast7 === 1 ? 'session' : 'sessions'})`,
+    `- Mindful streak: ${statistics.mindfulStreak.currentStreak} consecutive ${statistics.mindfulStreak.currentStreak === 1 ? 'day' : 'days'} (Best: ${statistics.mindfulStreak.longestStreak} ${statistics.mindfulStreak.longestStreak === 1 ? 'day' : 'days'})`,
+    `- Average energy: ${
+      statistics.averageEnergy7d.averageScore !== null
+        ? `${statistics.averageEnergy7d.averageScore}/100 (Avg ${statistics.averageEnergy7d.averageRating}/10 across ${statistics.averageEnergy7d.includedCount} ${statistics.averageEnergy7d.includedCount === 1 ? 'day' : 'days'})`
+        : 'Not recorded'
+    }`,
+    `- Average sleep: ${
+      statistics.averageSleep7d.averageMinutes !== null
+        ? `${formatSleepMinutes(statistics.averageSleep7d.averageMinutes)} (across ${statistics.averageSleep7d.includedCount} ${statistics.averageSleep7d.includedCount === 1 ? 'night' : 'nights'})`
+        : 'Not recorded'
+    }`,
+    `- Average movement: ${
+      statistics.averageSteps7d.averageSteps !== null
+        ? `${statistics.averageSteps7d.averageSteps.toLocaleString('en-US')} steps (across ${statistics.averageSteps7d.includedCount} ${statistics.averageSteps7d.includedCount === 1 ? 'day' : 'days'})`
+        : 'Not recorded'
+    }`,
+  ];
+
+  if (highlights.length > 0) {
+    plainLines.push(``, `HIGHLIGHTS`);
+    for (const item of highlights) {
+      plainLines.push(`- ${item.label}: ${item.value} (${item.detail})`);
+    }
+  }
+
+  plainLines.push(``, `NEXT WEEK FOCUS`);
+  for (const tip of nextWeekFocus) {
+    plainLines.push(`- ${tip}`);
+  }
+
+  return {
+    periodStart,
+    periodEnd,
+    generatedAt,
+    preferredName,
+    primaryGoal,
+    hasAnyActivity,
+    headline,
+    narrativeSummary,
+    activeDaysInLast7: statistics.activeDaysInLast7,
+    recordedDaysInLast7: statistics.recordedDaysInLast7,
+    completedSessionsInLast7: statistics.completedSessionsInLast7,
+    reflectiveNotesInLast7,
+    weeklyScore: statistics.weeklyWellnessScore,
+    streak: statistics.mindfulStreak,
+    averages: {
+      energyRating: statistics.averageEnergy7d.averageRating,
+      energyScore: statistics.averageEnergy7d.averageScore,
+      energyDays: statistics.averageEnergy7d.includedCount,
+      sleepMinutes: statistics.averageSleep7d.averageMinutes,
+      sleepDays: statistics.averageSleep7d.includedCount,
+      steps: statistics.averageSteps7d.averageSteps,
+      stepsDays: statistics.averageSteps7d.includedCount,
+    },
+    highlights,
+    nextWeekFocus,
+    plainTextReport: plainLines.join('\n'),
+  };
+}
+

@@ -18,6 +18,7 @@ import { MindfulStreakCard } from './MindfulStreakCard';
 import { ReflectiveNotesCard } from './ReflectiveNotesCard';
 import { ReminderBannerCard } from './ReminderBannerCard';
 import { SevenDaySummaryCard } from './SevenDaySummaryCard';
+import { WeeklyProgressReportCard } from './WeeklyProgressReportCard';
 import { WeeklyWellnessScoreCard } from './WeeklyWellnessScoreCard';
 
 interface HomeViewProps {
@@ -135,6 +136,13 @@ export function HomeView({
             entriesByDate={entriesByDate}
             todayDateKey={todayDateKey}
             onFocusCheckIn={onFocusCheckIn}
+          />
+          <WeeklyProgressReportCard
+            profile={profile}
+            statistics={statistics}
+            entriesByDate={entriesByDate}
+            onFocusCheckIn={onFocusCheckIn}
+            onNavigate={onNavigate}
           />
         </div>
 

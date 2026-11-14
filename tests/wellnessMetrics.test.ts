@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  buildWeeklyProgressReport,
   computeMindfulStreak,
   computeSelfReportedEnergyScore,
   computeWellnessStatistics,
@@ -436,4 +437,92 @@ test('weeklyWellnessScore computes weighted 7-day score without treating missing
   assert.equal(mixedStats.averageEnergy7d.averageRating, 7.3);
   assert.equal(mixedStats.averageEnergy7d.averageScore, 73);
 });
+
+test('buildWeeklyProgressReport summarizes empty and active 7-day windows accurately without fabricating data', () => {
+  const emptyStats = computeWellnessStatistics({}, [], '2026-11-14');
+  const emptyReport = buildWeeklyProgressReport({
+    statistics: emptyStats,
+    preferredName: 'Alex',
+    primaryGoal: 'sleep',
+    entriesByDate: {},
+    generatedAt: '2026-11-14T17:00:00.000Z',
+  });
+
+  assert.equal(emptyReport.hasAnyActivity, false);
+  assert.equal(emptyReport.periodStart, '2026-11-08');
+  assert.equal(emptyReport.periodEnd, '2026-11-14');
+  assert.equal(emptyReport.weeklyScore.score, null);
+  assert.equal(emptyReport.highlights.length, 0);
+  assert.match(emptyReport.narrativeSummary, /Missing days are never estimated/);
+  assert.match(emptyReport.plainTextReport, /MINDFUL COACH — WEEKLY PROGRESS REPORT/);
+
+  const entries = {
+    '2026-11-10': {
+      date: '2026-11-10',
+      energyRating: 6,
+      steps: 4200,
+      sleepMinutes: 390, // 6h 30m
+      reflectiveNote: 'Felt slightly tired in the afternoon.',
+      updatedAt: '2026-11-10T20:00:00.000Z',
+    },
+    '2026-11-13': {
+      date: '2026-11-13',
+      energyRating: 9,
+      steps: 8800,
+      sleepMinutes: 480, // 8h 0m (ideal)
+      reflectiveNote: 'Morning walk boosted focus.',
+      updatedAt: '2026-11-13T20:00:00.000Z',
+    },
+    '2026-11-14': {
+      date: '2026-11-14',
+      energyRating: 8,
+      steps: null, // omitted
+      sleepMinutes: null,
+      reflectiveNote: null,
+      updatedAt: '2026-11-14T09:00:00.000Z',
+    },
+  };
+  const sessions = [
+    {
+      completionId: 'c1',
+      runId: 'r1',
+      sessionId: 'sleep-wind-down',
+      title: 'Sleep wind-down',
+      durationSeconds: 240,
+      completedAt: '2026-11-14T08:00:00.000Z',
+      date: '2026-11-14',
+    },
+  ];
+
+  const stats = computeWellnessStatistics(entries, sessions, '2026-11-14');
+  const report = buildWeeklyProgressReport({
+    statistics: stats,
+    preferredName: 'Alex',
+    primaryGoal: 'energy',
+    entriesByDate: entries,
+    generatedAt: '2026-11-14T17:30:00.000Z',
+  });
+
+  assert.equal(report.hasAnyActivity, true);
+  assert.equal(report.activeDaysInLast7, 3);
+  assert.equal(report.recordedDaysInLast7, 3);
+  assert.equal(report.completedSessionsInLast7, 1);
+  assert.equal(report.reflectiveNotesInLast7, 2);
+  assert.equal(report.streak.currentStreak, 2);
+  assert.equal(report.averages.energyScore, 77);
+  assert.equal(report.averages.sleepMinutes, 435);
+  assert.equal(report.averages.steps, 6500);
+
+  const highlightById = Object.fromEntries(report.highlights.map((h) => [h.id, h]));
+  assert.equal(highlightById['peak-energy'].value, '90 / 100');
+  assert.equal(highlightById['best-sleep'].value, '8h 0m');
+  assert.equal(highlightById['top-steps'].value, '8,800 steps');
+  assert.equal(highlightById['sessions'].value, '1 completed');
+  assert.equal(highlightById['reflections'].value, '2 notes');
+
+  assert.match(report.plainTextReport, /Prepared for: Alex \| Primary focus: Energy/);
+  assert.match(report.plainTextReport, /Peak energy day: 90 \/ 100/);
+  assert.match(report.plainTextReport, /NEXT WEEK FOCUS/);
+});
+
 
