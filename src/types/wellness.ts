@@ -64,10 +64,28 @@ export interface MindfulStreakState {
   updatedAt: string;
 }
 
+export interface WeeklyWellnessScoreComponent {
+  id: 'energy' | 'sleep' | 'steps' | 'consistency';
+  label: string;
+  score: number | null;
+  weightPercent: number;
+  recordedDays: number;
+  detail: string;
+}
+
+export interface WeeklyWellnessScore {
+  score: number | null;
+  activeDaysInLast7: number;
+  recordedCategoriesCount: number;
+  tierLabel: string;
+  components: WeeklyWellnessScoreComponent[];
+}
+
 export interface WellnessStatistics {
   totalCompletedSessions: number;
   daysWithCheckIn: number;
   mindfulStreak: MindfulStreakState;
+  weeklyWellnessScore: WeeklyWellnessScore;
   sevenDayWindow: DaySummaryItem[];
   recordedDaysInLast7: number;
   completedSessionsInLast7: number;

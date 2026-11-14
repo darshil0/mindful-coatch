@@ -7,6 +7,8 @@ import {
   formatSleepMinutes,
   getChronologicalReflectiveNotes,
   hasAnyRecordedMetric,
+  scoreSleepMinutesForWellness,
+  scoreStepsForWellness,
 } from '../src/lib/wellnessMetrics';
 
 test('self-reported energy score never fabricates missing scores and multiplies 1..10 by 10', () => {
@@ -341,5 +343,73 @@ test('hasAnyRecordedMetric and getChronologicalReflectiveNotes track and order d
     ascNotes.map((n) => n.date),
     ['2026-11-08', '2026-11-09', '2026-11-12']
   );
+});
+
+test('weeklyWellnessScore computes weighted 7-day score without treating missing metrics as zero', () => {
+  // Sleep & step scoring bounds
+  assert.equal(scoreSleepMinutesForWellness(480), 100); // 8h ideal
+  assert.equal(scoreSleepMinutesForWellness(420), 100); // 7h ideal
+  assert.equal(scoreSleepMinutesForWellness(210), 50); // 3.5h
+  assert.equal(scoreSleepMinutesForWellness(0), 0); // explicit zero
+  assert.equal(scoreStepsForWellness(0), 0);
+  assert.equal(scoreStepsForWellness(4000), 50);
+  assert.equal(scoreStepsForWellness(10000), 100);
+
+  // Empty 7-day window never fabricates a score
+  const emptyStats = computeWellnessStatistics({}, [], '2026-11-14');
+  assert.equal(emptyStats.weeklyWellnessScore.score, null);
+  assert.equal(emptyStats.weeklyWellnessScore.tierLabel, 'No 7-day data yet');
+
+  // Partial metrics: only Energy (80/100 on 1 day -> 35% weight) + Consistency (1/7 = 14 -> 25% weight)
+  // Weighted: round((80*35 + 14*25) / 60) = round(3150 / 60) = 53
+  const partialStats = computeWellnessStatistics(
+    {
+      '2026-11-14': {
+        date: '2026-11-14',
+        energyRating: 8,
+        steps: null,
+        sleepMinutes: null,
+        updatedAt: '2026-11-14T09:00:00.000Z',
+      },
+    },
+    [],
+    '2026-11-14'
+  );
+  assert.equal(partialStats.weeklyWellnessScore.score, 53);
+  assert.equal(partialStats.weeklyWellnessScore.recordedCategoriesCount, 2);
+  assert.equal(
+    partialStats.weeklyWellnessScore.components.find((c) => c.id === 'sleep')?.score,
+    null
+  );
+  assert.equal(
+    partialStats.weeklyWellnessScore.components.find((c) => c.id === 'steps')?.score,
+    null
+  );
+
+  // Full 7-day ideal entries -> 100
+  const idealEntries = Object.fromEntries(
+    [
+      '2026-11-08',
+      '2026-11-09',
+      '2026-11-10',
+      '2026-11-11',
+      '2026-11-12',
+      '2026-11-13',
+      '2026-11-14',
+    ].map((date) => [
+      date,
+      {
+        date,
+        energyRating: 10,
+        steps: 8500,
+        sleepMinutes: 480,
+        updatedAt: `${date}T21:00:00.000Z`,
+      },
+    ])
+  );
+  const fullStats = computeWellnessStatistics(idealEntries, [], '2026-11-14');
+  assert.equal(fullStats.weeklyWellnessScore.score, 100);
+  assert.equal(fullStats.weeklyWellnessScore.tierLabel, 'Thriving rhythm');
+  assert.equal(fullStats.weeklyWellnessScore.recordedCategoriesCount, 4);
 });
 

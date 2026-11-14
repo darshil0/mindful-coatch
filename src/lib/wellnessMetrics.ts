@@ -4,6 +4,8 @@ import type {
   DaySummaryItem,
   MindfulStreakState,
   ReflectiveNoteEntry,
+  WeeklyWellnessScore,
+  WeeklyWellnessScoreComponent,
   WellnessStatistics,
 } from '../types/wellness';
 import {
@@ -196,6 +198,143 @@ export function formatStepsCount(steps: number | null | undefined): string {
   return `${steps.toLocaleString('en-US')} steps`;
 }
 
+/**
+ * Scores a single recorded night of sleep (0..100) relative to a restorative 7–9h window.
+ */
+export function scoreSleepMinutesForWellness(sleepMinutes: number): number {
+  const safe = Math.max(0, Math.min(1440, sleepMinutes));
+  if (safe >= 420 && safe <= 540) {
+    return 100;
+  }
+  if (safe < 420) {
+    return Math.round((safe / 420) * 100);
+  }
+  return Math.max(40, Math.round(100 - ((safe - 540) / 360) * 60));
+}
+
+/**
+ * Scores a single day's recorded step count (0..100) against a balanced 8,000-step benchmark.
+ */
+export function scoreStepsForWellness(steps: number): number {
+  const safe = Math.max(0, steps);
+  return Math.min(100, Math.round((safe / 8000) * 100));
+}
+
+function getWeeklyScoreTierLabel(score: number | null): string {
+  if (score === null) return 'No 7-day data yet';
+  if (score >= 80) return 'Thriving rhythm';
+  if (score >= 60) return 'Steady balance';
+  if (score >= 40) return 'Building momentum';
+  return 'Gentle start';
+}
+
+/**
+ * Computes a transparent 0..100 weekly wellness score from the 7-day window.
+ * Only recorded categories contribute (weighted renormalization), and missing data is never treated as 0.
+ */
+export function computeWeeklyWellnessScore(
+  sevenDayWindow: DaySummaryItem[],
+  averageEnergyScore: number | null,
+  averageEnergyCount: number,
+  averageSleepMinutes: number | null,
+  averageSleepCount: number,
+  averageSteps: number | null,
+  averageStepsCount: number
+): WeeklyWellnessScore {
+  const activeDaysInLast7 = sevenDayWindow.filter(
+    (d) => d.hasData || d.completedSessionsCount > 0
+  ).length;
+
+  const sleepScores = sevenDayWindow
+    .map((d) => d.sleepMinutes)
+    .filter((v): v is number => v !== null)
+    .map(scoreSleepMinutesForWellness);
+  const sleepComponentScore =
+    sleepScores.length > 0
+      ? Math.round(sleepScores.reduce((sum, s) => sum + s, 0) / sleepScores.length)
+      : null;
+
+  const stepScores = sevenDayWindow
+    .map((d) => d.steps)
+    .filter((v): v is number => v !== null)
+    .map(scoreStepsForWellness);
+  const stepsComponentScore =
+    stepScores.length > 0
+      ? Math.round(stepScores.reduce((sum, s) => sum + s, 0) / stepScores.length)
+      : null;
+
+  const consistencyScore =
+    activeDaysInLast7 > 0 ? Math.round((activeDaysInLast7 / 7) * 100) : null;
+
+  const components: WeeklyWellnessScoreComponent[] = [
+    {
+      id: 'energy',
+      label: 'Energy',
+      score: averageEnergyScore,
+      weightPercent: 35,
+      recordedDays: averageEnergyCount,
+      detail:
+        averageEnergyScore !== null
+          ? `Avg ${averageEnergyScore}/100 (${averageEnergyCount} ${averageEnergyCount === 1 ? 'day' : 'days'})`
+          : 'Not recorded',
+    },
+    {
+      id: 'sleep',
+      label: 'Sleep',
+      score: sleepComponentScore,
+      weightPercent: 25,
+      recordedDays: averageSleepCount,
+      detail:
+        averageSleepMinutes !== null
+          ? `Avg ${formatSleepMinutes(averageSleepMinutes)} (${averageSleepCount} ${averageSleepCount === 1 ? 'day' : 'days'})`
+          : 'Not recorded',
+    },
+    {
+      id: 'consistency',
+      label: 'Consistency',
+      score: consistencyScore,
+      weightPercent: 25,
+      recordedDays: activeDaysInLast7,
+      detail:
+        activeDaysInLast7 > 0
+          ? `${activeDaysInLast7} of 7 active ${activeDaysInLast7 === 1 ? 'day' : 'days'}`
+          : 'No active days',
+    },
+    {
+      id: 'steps',
+      label: 'Movement',
+      score: stepsComponentScore,
+      weightPercent: 15,
+      recordedDays: averageStepsCount,
+      detail:
+        averageSteps !== null
+          ? `Avg ${averageSteps.toLocaleString('en-US')} steps (${averageStepsCount} ${averageStepsCount === 1 ? 'day' : 'days'})`
+          : 'Not recorded',
+    },
+  ];
+
+  const availableComponents = components.filter((c) => c.score !== null);
+  const totalWeight = availableComponents.reduce((sum, c) => sum + c.weightPercent, 0);
+
+  const score =
+    activeDaysInLast7 > 0 && totalWeight > 0
+      ? Math.round(
+          availableComponents.reduce(
+            (sum, c) => sum + (c.score as number) * c.weightPercent,
+            0
+          ) / totalWeight
+        )
+      : null;
+
+  return {
+    score,
+    activeDaysInLast7,
+    recordedCategoriesCount: availableComponents.length,
+    tierLabel: getWeeklyScoreTierLabel(score),
+    components,
+  };
+}
+
 export function computeWellnessStatistics(
   entriesByDate: Record<string, DailyEntry>,
   completedSessions: CompletedSessionRecord[],
@@ -283,10 +422,21 @@ export function computeWellnessStatistics(
         )
       : null;
 
+  const weeklyWellnessScore = computeWeeklyWellnessScore(
+    sevenDayWindow,
+    averageEnergyScore,
+    recordedEnergyRatings.length,
+    averageSleepMinutes,
+    recordedSleepValues.length,
+    averageSteps,
+    recordedStepValues.length
+  );
+
   return {
     totalCompletedSessions: completedSessions.length,
     daysWithCheckIn,
     mindfulStreak,
+    weeklyWellnessScore,
     sevenDayWindow,
     recordedDaysInLast7,
     completedSessionsInLast7,

@@ -18,6 +18,7 @@ import { MindfulStreakCard } from './MindfulStreakCard';
 import { ReflectiveNotesCard } from './ReflectiveNotesCard';
 import { ReminderBannerCard } from './ReminderBannerCard';
 import { SevenDaySummaryCard } from './SevenDaySummaryCard';
+import { WeeklyWellnessScoreCard } from './WeeklyWellnessScoreCard';
 
 interface HomeViewProps {
   profile: UserProfile;
@@ -137,16 +138,17 @@ export function HomeView({
 
         <div className="space-y-6 lg:col-span-5">
           <MindfulStreakCard streak={mindfulStreak} onNavigate={onNavigate} />
+          <WeeklyWellnessScoreCard weeklyScore={statistics.weeklyWellnessScore} />
+          <SevenDaySummaryCard
+            statistics={statistics}
+            effectiveReducedMotion={effectiveReducedMotion}
+          />
           <HomeQuickActions
             goalMeta={goalMeta}
             recommendedSession={recommendedSession}
             onOpenSession={onOpenSession}
             onAskCoachQuestion={onAskCoachQuestion}
             onNavigate={onNavigate}
-          />
-          <SevenDaySummaryCard
-            statistics={statistics}
-            effectiveReducedMotion={effectiveReducedMotion}
           />
         </div>
       </div>
