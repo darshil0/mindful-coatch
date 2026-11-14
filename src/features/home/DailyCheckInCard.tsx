@@ -74,9 +74,19 @@ export function DailyCheckInCard({
     setFormErrors({});
   }, [todayDateKey, todayEntry]);
 
+  // Clear saved status banner when the calendar day rolls over
+  useEffect(() => {
+    setSaveAnnouncement(null);
+  }, [todayDateKey]);
+
   useEffect(() => {
     if (focusCheckInSignal > 0 && checkInSectionRef.current) {
-      checkInSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const reducedMotion =
+        document.documentElement.getAttribute('data-reduce-motion') === 'true';
+      checkInSectionRef.current.scrollIntoView({
+        behavior: reducedMotion ? 'auto' : 'smooth',
+        block: 'start',
+      });
       const firstButton =
         checkInSectionRef.current.querySelector<HTMLElement>('button, input, textarea');
       firstButton?.focus();
@@ -274,7 +284,10 @@ export function DailyCheckInCard({
             {selectedEnergy !== null && (
               <button
                 type="button"
-                onClick={() => setSelectedEnergy(null)}
+                onClick={() => {
+                  setSelectedEnergy(null);
+                  setSaveAnnouncement(null);
+                }}
                 className="min-h-[44px] px-2 text-xs font-medium text-[#5C6762] underline underline-offset-4 hover:text-[#1E2421] whitespace-nowrap"
               >
                 Clear rating
@@ -296,6 +309,7 @@ export function DailyCheckInCard({
                   aria-label={`Rate energy ${num} out of 10`}
                   onClick={() => {
                     setSelectedEnergy(num);
+                    setSaveAnnouncement(null);
                     if (formErrors.energy || formErrors.general) {
                       setFormErrors((prev) => ({
                         ...prev,
@@ -345,6 +359,7 @@ export function DailyCheckInCard({
                 value={sleepHoursInput}
                 onChange={(e) => {
                   setSleepHoursInput(e.target.value);
+                  setSaveAnnouncement(null);
                   if (formErrors.sleep || formErrors.general) {
                     setFormErrors((prev) => ({
                       ...prev,
@@ -360,7 +375,7 @@ export function DailyCheckInCard({
                     : 'sleep-input-hint'
                 }
                 placeholder="e.g. 7"
-                className="mt-1.5 w-full min-h-[44px] rounded-xl border border-[#CFCBC0] bg-[#FAF9F6] px-3.5 py-2 font-mono text-sm text-[#1E2421] tabular-nums placeholder:font-sans placeholder:text-[#76827C] focus:border-[#2F5D50] focus:bg-white"
+                className="mt-1.5 w-full min-h-[44px] rounded-xl border border-[#CFCBC0] bg-[#FAF9F6] px-3.5 py-2 font-mono text-sm text-[#1E2421] tabular-nums placeholder:font-sans placeholder:text-[#5C6762] focus:border-[#2F5D50] focus:bg-white"
               />
             </div>
             <div>
@@ -377,6 +392,7 @@ export function DailyCheckInCard({
                 value={sleepMinutesInput}
                 onChange={(e) => {
                   setSleepMinutesInput(e.target.value);
+                  setSaveAnnouncement(null);
                   if (formErrors.sleep || formErrors.general) {
                     setFormErrors((prev) => ({
                       ...prev,
@@ -392,7 +408,7 @@ export function DailyCheckInCard({
                     : 'sleep-input-hint'
                 }
                 placeholder="e.g. 30"
-                className="mt-1.5 w-full min-h-[44px] rounded-xl border border-[#CFCBC0] bg-[#FAF9F6] px-3.5 py-2 font-mono text-sm text-[#1E2421] tabular-nums placeholder:font-sans placeholder:text-[#76827C] focus:border-[#2F5D50] focus:bg-white"
+                className="mt-1.5 w-full min-h-[44px] rounded-xl border border-[#CFCBC0] bg-[#FAF9F6] px-3.5 py-2 font-mono text-sm text-[#1E2421] tabular-nums placeholder:font-sans placeholder:text-[#5C6762] focus:border-[#2F5D50] focus:bg-white"
               />
             </div>
           </div>
@@ -427,6 +443,7 @@ export function DailyCheckInCard({
               value={stepsInput}
               onChange={(e) => {
                 setStepsInput(e.target.value);
+                setSaveAnnouncement(null);
                 if (formErrors.steps || formErrors.general) {
                   setFormErrors((prev) => ({
                     ...prev,
@@ -442,7 +459,7 @@ export function DailyCheckInCard({
                   : 'steps-input-hint'
               }
               placeholder="e.g. 6000"
-              className="w-full min-h-[44px] rounded-xl border border-[#CFCBC0] bg-[#FAF9F6] px-3.5 py-2 font-mono text-sm text-[#1E2421] tabular-nums placeholder:font-sans placeholder:text-[#76827C] focus:border-[#2F5D50] focus:bg-white"
+              className="w-full min-h-[44px] rounded-xl border border-[#CFCBC0] bg-[#FAF9F6] px-3.5 py-2 font-mono text-sm text-[#1E2421] tabular-nums placeholder:font-sans placeholder:text-[#5C6762] focus:border-[#2F5D50] focus:bg-white"
             />
           </div>
           {formErrors.steps && (
@@ -471,6 +488,7 @@ export function DailyCheckInCard({
                   type="button"
                   onClick={() => {
                     setReflectiveNoteInput('');
+                    setSaveAnnouncement(null);
                     if (formErrors.note || formErrors.general) {
                       setFormErrors((prev) => ({
                         ...prev,
@@ -505,6 +523,7 @@ export function DailyCheckInCard({
             value={reflectiveNoteInput}
             onChange={(e) => {
               setReflectiveNoteInput(e.target.value);
+              setSaveAnnouncement(null);
               if (formErrors.note || formErrors.general) {
                 setFormErrors((prev) => ({
                   ...prev,
@@ -520,7 +539,7 @@ export function DailyCheckInCard({
                 : 'reflective-note-hint'
             }
             placeholder="e.g. A quieter afternoon walk helped me settle before dinner."
-            className="mt-3 w-full rounded-xl border border-[#CFCBC0] bg-[#FAF9F6] px-3.5 py-2.5 text-sm leading-relaxed text-[#1E2421] placeholder:text-[#76827C] focus:border-[#2F5D50] focus:bg-white"
+            className="mt-3 w-full rounded-xl border border-[#CFCBC0] bg-[#FAF9F6] px-3.5 py-2.5 text-sm leading-relaxed text-[#1E2421] placeholder:text-[#5C6762] focus:border-[#2F5D50] focus:bg-white"
           />
           {formErrors.note && (
             <p

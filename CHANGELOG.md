@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Weekly wellness score summary**:
+  - Added `WeeklyWellnessScore`, `WeeklyWellnessScoreComponent`, and `WellnessStatistics.weeklyWellnessScore` (`src/types/wellness.ts`), along with `scoreSleepMinutesForWellness`, `scoreStepsForWellness`, and `computeWeeklyWellnessScore` (`src/lib/wellnessMetrics.ts`).
+  - Scores up to four recorded 7-day inputs—Energy (35%), Sleep relative to 7–9 hours (25%), Check-in & session consistency (25%), and Movement up to 8,000 steps (15%)—using weighted renormalization so unrecorded categories are omitted rather than treated as zero.
+  - Added `WeeklyWellnessScoreCard` (`src/features/home/WeeklyWellnessScoreCard.tsx`) to `HomeView` with an expandable scoring explanation, per-category breakdown, and empty state, backed by unit tests in `tests/wellnessMetrics.test.ts`.
 - **Daily reflective notes & chronological journal**:
   - Extended `DailyEntry` (`reflectiveNote?: string | null`) and added `ReflectiveNoteEntry` (`src/types/wellness.ts`), alongside `MAX_REFLECTIVE_NOTE_LENGTH` (`500`) and `validateReflectiveNote` (`src/lib/validation.ts`).
   - Updated `hasAnyRecordedMetric` and added `getChronologicalReflectiveNotes` (`src/lib/wellnessMetrics.ts`), and extended `WellnessStorageStore` (`src/services/storageService.ts`) to sanitize, persist, and clean up `reflectiveNote` entries in `localStorage`.
@@ -22,13 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `ReminderBannerCard` on `HomeView` and a shared `ReminderScheduleEditor` available on both `HomeView` and `ProfileView` Preferences, plus unit tests in `tests/reminders.test.ts` and `tests/storageService.test.ts`.
 
 ### Fixed
-- Corrected local-date handling so entries and streak windows are based on the user's actual calendar day rather than UTC-shifted values.
-- Fixed validation logic to preserve explicitly recorded zero values for steps and sleep while rejecting invalid negatives and out-of-range numbers.
-- Corrected session timer behavior for throttled tab/background timing, pause/resume transitions, and duplicate completion prevention by run ID.
-- Fixed mindful streak and wellness statistics calculations to exclude missing data, retain recorded zero values, and avoid double-counting multiple sessions on the same day.
-- Hardened storage hydration and persistence to recover from malformed JSON, retain explicit zero entries, and clear chat history when privacy is disabled.
-- Corrected safety checks and curated demo coach guidance to prioritize urgent crisis concerns and avoid restrictive or unsafe weight-loss advice.
-- Fixed sliding-window rate limiter behavior so stale timestamps expire and per-IP limits are enforced correctly.
+- **Server & AI failover hardening**: Enabled `trust proxy` in `server.ts` so `coachRateLimiter` isolates client IPs behind reverse proxies, excluded `/assets/` from SPA HTML fallback, guarded non-object JSON/error payloads in `coachRoutes.ts` and `errorHandler.ts`, enforced strict `maxTrackedKeys` eviction in `SlidingWindowRateLimiter`, cleared prior transient errors before empty-response checks in `geminiCoachService.ts`, and aligned `401`/`unregistered callers` auth error mapping.
+- **Coach prompt & async lock race**: Updated `useCoachChat` to wait for `/api/coach/status` before auto-submitting Home starter prompts (preventing unnecessary `503` requests and false Live AI notice acknowledgement when unconfigured), unified demo and live turns under an abort-safe `try/finally` lock cleanup, and eliminated stale `chatMessages` closures in `useWellnessStore`.
+- **Entry normalization & calculation edge cases**: Unified `DailyEntry` sanitization via `normalizeDailyEntry` across `useWellnessStore` and `WellnessStorageStore`, guarded `shiftLocalDateKey`/`getPastLocalDateKeys` against invalid date keys, computed `averageEnergyScore` from the unrounded mean rating, and synced `HomeView` time-of-day greetings with `env.nowMinutes`.
+- **Accessibility, UI feedback & documentation**: Increased interactive toggle, reminder, and recovery controls to `44px` minimum touch targets, upgraded input placeholder contrast (`#5C6762`), respected reduced-motion settings in `DailyCheckInCard` scrolling, cleared stale save notices on field edits and date changes, removed duplicate reminder save announcements on `ProfileView`, updated `OnboardingFlow` Step 3 local-storage disclosures, and synced `metadata.json`, `index.html`, and `README.md`.
 
 ## [1.4.0] - 2026-11-12
 

@@ -411,5 +411,29 @@ test('weeklyWellnessScore computes weighted 7-day score without treating missing
   assert.equal(fullStats.weeklyWellnessScore.score, 100);
   assert.equal(fullStats.weeklyWellnessScore.tierLabel, 'Thriving rhythm');
   assert.equal(fullStats.weeklyWellnessScore.recordedCategoriesCount, 4);
+
+  // Unrounded energy average avoids intermediate toFixed(1) drift:
+  // [7, 7, 7, 8, 8, 8, 8] -> mean 53/7 = 7.5714... -> rating 7.6, exact *10 = 76
+  // [7, 7, 7, 7, 8, 8, 8] -> mean 52/7 = 7.4285... -> rating 7.4, exact *10 = 74
+  // [7, 7, 7, 7, 7, 7, 10] -> mean 52/7 = 7.4285... -> exact score 74
+  // [6, 6, 6, 7, 7, 7, 10] -> mean 49/7 = 7, whereas [7, 7, 7, 7, 7, 8, 8] -> 51/7 = 7.285... -> 73
+  const mixedEnergyEntries = Object.fromEntries(
+    [7, 7, 7, 7, 7, 8, 8].map((rating, idx) => {
+      const date = `2026-11-${String(8 + idx).padStart(2, '0')}`;
+      return [
+        date,
+        {
+          date,
+          energyRating: rating,
+          steps: null,
+          sleepMinutes: null,
+          updatedAt: `${date}T10:00:00.000Z`,
+        },
+      ];
+    })
+  );
+  const mixedStats = computeWellnessStatistics(mixedEnergyEntries, [], '2026-11-14');
+  assert.equal(mixedStats.averageEnergy7d.averageRating, 7.3);
+  assert.equal(mixedStats.averageEnergy7d.averageScore, 73);
 });
 

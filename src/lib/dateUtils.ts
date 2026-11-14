@@ -36,7 +36,8 @@ export function parseLocalDateKey(dateKey: string): Date {
  * so daylight-saving transitions never skip or duplicate a calendar day.
  */
 export function shiftLocalDateKey(dateKey: string, deltaDays: number): string {
-  const anchor = parseLocalDateKey(dateKey);
+  const safeKey = isValidDateKey(dateKey) ? dateKey : getLocalDateKey();
+  const anchor = parseLocalDateKey(safeKey);
   const shifted = new Date(
     anchor.getFullYear(),
     anchor.getMonth(),
@@ -57,7 +58,10 @@ export function getPastLocalDateKeys(
   anchorDateKey: string = getLocalDateKey()
 ): string[] {
   const count = Math.max(1, Math.floor(days));
-  const anchor = parseLocalDateKey(anchorDateKey);
+  const safeAnchor = isValidDateKey(anchorDateKey)
+    ? anchorDateKey
+    : getLocalDateKey();
+  const anchor = parseLocalDateKey(safeAnchor);
   const keys: string[] = [];
   for (let offset = count - 1; offset >= 0; offset -= 1) {
     const dt = new Date(

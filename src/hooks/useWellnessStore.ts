@@ -28,6 +28,7 @@ import {
 } from '../lib/reminders';
 import { getLocalDateKey } from '../lib/dateUtils';
 import { appendUniqueCompletion } from '../lib/sessionTimer';
+import { normalizeDailyEntry } from '../lib/validation';
 
 export interface WellnessStoreHookResult {
   profile: UserProfile | null;
@@ -127,6 +128,8 @@ export function useWellnessStore(): WellnessStoreHookResult {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(
     initialHydrated.chatMessages
   );
+  const chatMessagesRef = useRef<ChatMessage[]>(initialHydrated.chatMessages);
+  chatMessagesRef.current = chatMessages;
   const [storageAvailable, setStorageAvailable] = useState<boolean>(
     initialHydrated.storageAvailable
   );
@@ -158,11 +161,12 @@ export function useWellnessStore(): WellnessStoreHookResult {
 
   const saveDailyEntry = useCallback(
     (entry: DailyEntry) => {
+      const normalized = normalizeDailyEntry(entry);
       const next = { ...entriesRef.current };
-      if (hasAnyRecordedMetric(entry)) {
-        next[entry.date] = entry;
+      if (hasAnyRecordedMetric(normalized)) {
+        next[normalized.date] = normalized;
       } else {
-        delete next[entry.date];
+        delete next[normalized.date];
       }
       entriesRef.current = next;
       store.saveEntries(next);
@@ -204,6 +208,7 @@ export function useWellnessStore(): WellnessStoreHookResult {
     (added: ChatMessage[]) => {
       setChatMessages((prev) => {
         const next = [...prev, ...added].slice(-50);
+        chatMessagesRef.current = next;
         store.saveChatMessages(next, saveChatHistoryRef.current);
         return next;
       });
@@ -214,6 +219,7 @@ export function useWellnessStore(): WellnessStoreHookResult {
 
   const clearChatHistory = useCallback(() => {
     store.clearChatHistory();
+    chatMessagesRef.current = [];
     setChatMessages([]);
     syncStorageHealth();
   }, [store, syncStorageHealth]);
@@ -238,14 +244,15 @@ export function useWellnessStore(): WellnessStoreHookResult {
 
   const updatePreferences = useCallback(
     (nextPrefs: UserPreferences) => {
+      saveChatHistoryRef.current = nextPrefs.saveChatHistory;
       setPreferences(nextPrefs);
       store.savePreferences(nextPrefs);
       if (nextPrefs.saveChatHistory) {
-        store.saveChatMessages(chatMessages, true);
+        store.saveChatMessages(chatMessagesRef.current, true);
       }
       syncStorageHealth();
     },
-    [chatMessages, store, syncStorageHealth]
+    [store, syncStorageHealth]
   );
 
   const acknowledgeAiNotice = useCallback(() => {

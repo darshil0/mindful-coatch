@@ -124,7 +124,7 @@ export function CoachMessageList({
                     type="button"
                     onClick={onRetryFailed}
                     disabled={isSending}
-                    className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg bg-[#2F5D50] px-3.5 py-1.5 text-xs font-medium text-white hover:bg-[#254B40] whitespace-nowrap"
+                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-[#2F5D50] px-3.5 py-2 text-xs font-medium text-white hover:bg-[#254B40] whitespace-nowrap"
                   >
                     <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Retry with Live AI</span>
@@ -135,7 +135,7 @@ export function CoachMessageList({
                     type="button"
                     onClick={onStayInDemo}
                     disabled={isSending}
-                    className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-[#D5CDB6] bg-white px-3.5 py-1.5 text-xs font-medium text-[#4A3F22] hover:bg-[#F5F2E8] whitespace-nowrap"
+                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-[#D5CDB6] bg-white px-3.5 py-2 text-xs font-medium text-[#4A3F22] hover:bg-[#F5F2E8] whitespace-nowrap"
                   >
                     <span>Stay in Demo Coach</span>
                   </button>

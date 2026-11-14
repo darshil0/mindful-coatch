@@ -11,6 +11,7 @@ Built with React, TypeScript, Vite, and Express, the app keeps personal wellness
 - Chronological reflective notes journal on the Home view with newest-first and oldest-first sorting
 - Gentle morning check-in and evening reflection reminders with customizable local scheduling
 - Seven-day Recharts trend visualization (daily energy and completed mindfulness sessions), accessible text table, and Mindful Streak tracking
+- Weekly wellness score summary on Home calculated transparently from recorded 7-day energy, sleep, consistency, and movement without treating unrecorded metrics as zero
 - Guided sessions for mindfulness, breathing, energy resets, and sleep wind-down
 - A supportive coach experience with live Gemini AI integration and a curated demo mode fallback
 - Privacy controls for chat-history persistence and local data deletion
@@ -24,7 +25,7 @@ Built with React, TypeScript, Vite, and Express, the app keeps personal wellness
 
 ## Prerequisites
 
-- Node.js 22+ or newer
+- Node.js 22 or newer
 - npm (or Bun, if preferred)
 
 ## Getting Started
@@ -55,7 +56,7 @@ Then set a Gemini API key if you want live AI coaching enabled:
 GEMINI_API_KEY="your_server_side_gemini_api_key"
 ```
 
-If `GEMINI_API_KEY` is not set, the app will continue to work in demo mode with built-in wellness guidance.
+If `GEMINI_API_KEY` is not set, the app will continue to work in demo mode with built-in wellness guidance. (`APP_URL` in `.env.example` is optional hosting metadata provided by deployment environments.)
 
 ### 3. Run the app
 

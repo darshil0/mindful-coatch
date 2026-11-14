@@ -103,10 +103,7 @@ export function ProfileView({
           hasAnyChatMessages={hasAnyChatMessages}
           onToggleChatSaving={handleToggleChatSaving}
           onChangeMotionSetting={handleMotionChange}
-          onSaveReminderSchedule={(next) => {
-            onUpdateReminderSchedule(next);
-            setActionNotice('Daily reminder schedule saved.');
-          }}
+          onSaveReminderSchedule={onUpdateReminderSchedule}
           onClearChat={handleClearChat}
           onRequestDeleteAll={() => setConfirmDeleteOpen(true)}
         />

@@ -18,13 +18,19 @@ export class SlidingWindowRateLimiter {
   }
 
   public allow(key: string, nowMs: number = Date.now()): boolean {
-    if (this.requestTimestamps.size > this.maxTrackedKeys) {
+    if (this.requestTimestamps.size >= this.maxTrackedKeys && !this.requestTimestamps.has(key)) {
       for (const [trackedKey, list] of this.requestTimestamps.entries()) {
         const fresh = list.filter((t) => nowMs - t < this.windowMs);
         if (fresh.length === 0) {
           this.requestTimestamps.delete(trackedKey);
         } else {
           this.requestTimestamps.set(trackedKey, fresh);
+        }
+      }
+      if (this.requestTimestamps.size >= this.maxTrackedKeys) {
+        const oldestKey = this.requestTimestamps.keys().next().value;
+        if (oldestKey !== undefined) {
+          this.requestTimestamps.delete(oldestKey);
         }
       }
     }

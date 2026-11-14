@@ -67,6 +67,7 @@ export function ProfileEditorCard({
             value={nameInput}
             onChange={(e) => {
               setNameInput(e.target.value);
+              setProfileSavedNotice(null);
               if (nameError) setNameError(null);
             }}
             aria-invalid={nameError ? 'true' : 'false'}
@@ -108,7 +109,10 @@ export function ProfileEditorCard({
                     name="profile-goal"
                     value={goalId}
                     checked={isSelected}
-                    onChange={() => setSelectedGoal(goalId)}
+                    onChange={() => {
+                      setSelectedGoal(goalId);
+                      setProfileSavedNotice(null);
+                    }}
                     className="mt-1 h-4 w-4 accent-[#2F5D50]"
                   />
                   <div>

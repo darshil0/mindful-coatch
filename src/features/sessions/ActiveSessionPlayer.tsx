@@ -328,7 +328,7 @@ export function ActiveSessionPlayer({
                 activeStepInfo.index === idx;
               return (
                 <li
-                  key={step.title}
+                  key={`${session.id}-step-${idx}`}
                   className={`py-4 first:pt-1 last:pb-0 ${
                     isCurrent ? 'rounded-xl bg-[#EBF2EF]/50 px-3 -mx-3' : ''
                   }`}

@@ -120,7 +120,7 @@ export function OnboardingFlow({
                       : 'preferred-name-hint'
                   }
                   placeholder="For example, Maya"
-                  className="mt-2 w-full min-h-[48px] rounded-xl border border-[#CFCBC0] bg-[#FAF9F6] px-4 py-2.5 text-base text-[#1E2421] placeholder:text-[#76827C] focus:border-[#2F5D50] focus:bg-white"
+                  className="mt-2 w-full min-h-[48px] rounded-xl border border-[#CFCBC0] bg-[#FAF9F6] px-4 py-2.5 text-base text-[#1E2421] placeholder:text-[#5C6762] focus:border-[#2F5D50] focus:bg-white"
                 />
                 <p
                   id="preferred-name-hint"
@@ -261,11 +261,12 @@ export function OnboardingFlow({
                     </h2>
                     <p className="mt-1 text-sm leading-relaxed text-[#4A5550]">
                       Your preferred name ({nameInput}), focus goal (
-                      {GOAL_METADATA[selectedGoal].label}), daily energy/sleep/step
-                      check-ins, and completed sessions stay in local browser storage.
-                      Persistent chat-history saving is turned <strong>off</strong> by
-                      default. Local browser storage is not encrypted, does not sync across
-                      devices, and may be visible to others using the same browser profile.
+                      {GOAL_METADATA[selectedGoal].label}), daily energy, sleep, step, and
+                      reflective-note check-ins, reminder schedules, and completed
+                      sessions stay in local browser storage. Persistent chat-history saving
+                      is turned <strong>off</strong> by default. Local browser storage is
+                      not encrypted, does not sync across devices, and may be visible to
+                      others using the same browser profile.
                     </p>
                   </div>
                 </div>

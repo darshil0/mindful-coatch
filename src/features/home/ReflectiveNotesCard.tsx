@@ -60,7 +60,7 @@ export function ReflectiveNotesCard({
               type="button"
               onClick={() => setSortOrder('desc')}
               aria-pressed={sortOrder === 'desc'}
-              className={`min-h-[36px] rounded-md px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap ${
+              className={`min-h-[44px] rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
                 sortOrder === 'desc'
                   ? 'bg-white text-[#1E2421] shadow-2xs'
                   : 'text-[#4A5550] hover:text-[#1E2421]'
@@ -72,7 +72,7 @@ export function ReflectiveNotesCard({
               type="button"
               onClick={() => setSortOrder('asc')}
               aria-pressed={sortOrder === 'asc'}
-              className={`min-h-[36px] rounded-md px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap ${
+              className={`min-h-[44px] rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
                 sortOrder === 'asc'
                   ? 'bg-white text-[#1E2421] shadow-2xs'
                   : 'text-[#4A5550] hover:text-[#1E2421]'

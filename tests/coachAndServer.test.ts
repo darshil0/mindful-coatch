@@ -55,4 +55,17 @@ test('SlidingWindowRateLimiter enforces per-IP limits and expires old requests',
   assert.equal(limiter.allow('10.0.0.2', 3_000), true);
   // After window elapses, original IP is allowed again
   assert.equal(limiter.allow('127.0.0.1', 12_000), true);
+
+  // Bounded map evicts oldest active key when maxTrackedKeys is reached
+  const boundedLimiter = new SlidingWindowRateLimiter({
+    windowMs: 10_000,
+    maxRequests: 2,
+    maxTrackedKeys: 2,
+  });
+  assert.equal(boundedLimiter.allow('ip-1', 1_000), true);
+  assert.equal(boundedLimiter.allow('ip-1', 1_100), true);
+  assert.equal(boundedLimiter.allow('ip-2', 1_200), true);
+  assert.equal(boundedLimiter.allow('ip-3', 1_300), true);
+  // ip-1 was evicted when ip-3 arrived, so ip-1 starts fresh without exceeding 2 tracked keys
+  assert.equal(boundedLimiter.allow('ip-1', 1_400), true);
 });

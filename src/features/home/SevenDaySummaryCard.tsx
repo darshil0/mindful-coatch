@@ -43,7 +43,7 @@ export function SevenDaySummaryCard({
               type="button"
               onClick={() => setSummaryViewMode('visual')}
               aria-pressed={summaryViewMode === 'visual'}
-              className={`min-h-[36px] rounded-md px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap ${
+              className={`min-h-[44px] rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
                 summaryViewMode === 'visual'
                   ? 'bg-white text-[#1E2421] shadow-2xs'
                   : 'text-[#4A5550] hover:text-[#1E2421]'
@@ -55,7 +55,7 @@ export function SevenDaySummaryCard({
               type="button"
               onClick={() => setSummaryViewMode('table')}
               aria-pressed={summaryViewMode === 'table'}
-              className={`min-h-[36px] rounded-md px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap ${
+              className={`min-h-[44px] rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
                 summaryViewMode === 'table'
                   ? 'bg-white text-[#1E2421] shadow-2xs'
                   : 'text-[#4A5550] hover:text-[#1E2421]'

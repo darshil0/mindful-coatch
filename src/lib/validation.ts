@@ -1,4 +1,4 @@
-import type { WellnessGoal } from '../types/wellness.ts';
+import type { DailyEntry, WellnessGoal } from '../types/wellness.ts';
 import { WELLNESS_GOALS } from '../data/goals.ts';
 
 export type ValidationResult<T> =
@@ -156,3 +156,52 @@ export function validateReflectiveNote(raw: string): ValidationResult<string | n
   return { valid: true, value: normalized };
 }
 
+/**
+ * Sanitizes a DailyEntry so persisted and in-memory representations apply
+ * identical bounds, integer checks, and reflective note normalization.
+ */
+export function normalizeDailyEntry(entry: DailyEntry): DailyEntry {
+  const energyRating =
+    typeof entry.energyRating === 'number' &&
+    Number.isInteger(entry.energyRating) &&
+    entry.energyRating >= 1 &&
+    entry.energyRating <= 10
+      ? entry.energyRating
+      : null;
+  const steps =
+    typeof entry.steps === 'number' &&
+    Number.isSafeInteger(entry.steps) &&
+    entry.steps >= 0 &&
+    entry.steps <= 250000
+      ? entry.steps
+      : null;
+  const sleepMinutes =
+    typeof entry.sleepMinutes === 'number' &&
+    Number.isInteger(entry.sleepMinutes) &&
+    entry.sleepMinutes >= 0 &&
+    entry.sleepMinutes <= 1440
+      ? entry.sleepMinutes
+      : null;
+
+  let reflectiveNote: string | null = null;
+  if (typeof entry.reflectiveNote === 'string') {
+    const check = validateReflectiveNote(entry.reflectiveNote);
+    reflectiveNote = check.valid
+      ? check.value
+      : entry.reflectiveNote
+          .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+          .replace(/\r\n/g, '\n')
+          .trim()
+          .slice(0, MAX_REFLECTIVE_NOTE_LENGTH)
+          .trim() || null;
+  }
+
+  return {
+    date: entry.date,
+    energyRating,
+    steps,
+    sleepMinutes,
+    reflectiveNote,
+    updatedAt: entry.updatedAt,
+  };
+}

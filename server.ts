@@ -16,6 +16,7 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
+  app.set('trust proxy', 1);
   app.disable('x-powered-by');
   app.use(express.json({ limit: '16kb' }));
   app.use(jsonErrorHandler);
@@ -34,7 +35,10 @@ async function startServer() {
     const distPath = path.join(__dirname, 'dist');
     app.use(express.static(distPath));
     app.use((req: Request, res: Response, next: NextFunction) => {
-      if (req.method !== 'GET' && req.method !== 'HEAD') {
+      if (
+        (req.method !== 'GET' && req.method !== 'HEAD') ||
+        req.path.startsWith('/assets/')
+      ) {
         next();
         return;
       }

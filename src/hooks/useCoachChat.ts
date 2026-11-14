@@ -107,36 +107,48 @@ export function useCoachChat({
       mode: effectiveMode,
     };
 
-    if (appendUserBubble) {
-      setFailedTurnText(null);
-      onAppendMessages([userMsg]);
-      setInputValue('');
-    }
-
-    if (effectiveMode === 'live' && !preferences.acknowledgedAiNotice) {
-      onAcknowledgeAiNotice();
-    }
-
-    if (effectiveMode === 'demo') {
-      await new Promise((resolve) => window.setTimeout(resolve, 260));
-      if (turnGen !== generationRef.current) return;
-      const demo = buildCuratedDemoResponse(trimmed, primaryGoal);
-      const assistantMsg: ChatMessage = {
-        id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        role: 'assistant',
-        content: demo.content,
-        createdAt: new Date().toISOString(),
-        mode: 'demo',
-        isCrisisNotice: demo.isCrisisNotice,
-      };
-      onAppendMessages([assistantMsg]);
-      setFailedTurnText(null);
-      setIsSending(false);
-      submittingLockRef.current = false;
-      return;
-    }
-
     try {
+      if (appendUserBubble) {
+        setFailedTurnText(null);
+        onAppendMessages([userMsg]);
+        setInputValue('');
+      }
+
+      if (effectiveMode === 'demo') {
+        await new Promise<void>((resolve) => {
+          const timer = window.setTimeout(() => {
+            controller.signal.removeEventListener('abort', onAbort);
+            resolve();
+          }, 260);
+          const onAbort = () => {
+            window.clearTimeout(timer);
+            resolve();
+          };
+          if (controller.signal.aborted) {
+            onAbort();
+          } else {
+            controller.signal.addEventListener('abort', onAbort, { once: true });
+          }
+        });
+        if (controller.signal.aborted || turnGen !== generationRef.current) return;
+        const demo = buildCuratedDemoResponse(trimmed, primaryGoal);
+        const assistantMsg: ChatMessage = {
+          id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          role: 'assistant',
+          content: demo.content,
+          createdAt: new Date().toISOString(),
+          mode: 'demo',
+          isCrisisNotice: demo.isCrisisNotice,
+        };
+        onAppendMessages([assistantMsg]);
+        setFailedTurnText(null);
+        return;
+      }
+
+      if (serverLiveAiAvailable === true && !preferences.acknowledgedAiNotice) {
+        onAcknowledgeAiNotice();
+      }
+
       let historySource = messages;
       if (!appendUserBubble) {
         let endIdx = messages.length;
@@ -201,6 +213,9 @@ export function useCoachChat({
       }
 
       setServerLiveAiAvailable(true);
+      if (!preferences.acknowledgedAiNotice) {
+        onAcknowledgeAiNotice();
+      }
       const assistantMsg: ChatMessage = {
         id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         role: 'assistant',
@@ -247,14 +262,16 @@ export function useCoachChat({
   const sendTurnRef = useRef(sendTurn);
   sendTurnRef.current = sendTurn;
 
-  // Submit starter question selected from the Home dashboard immediately
+  // Submit starter question selected from the Home dashboard once mode status resolves
   useEffect(() => {
-    if (draftPrompt) {
-      const promptToSend = draftPrompt;
-      onClearDraftPrompt();
-      void sendTurnRef.current(promptToSend, true);
+    if (!draftPrompt) return;
+    if (isOnline && serverLiveAiAvailable === null && !preferDemoMode) {
+      return;
     }
-  }, [draftPrompt, onClearDraftPrompt]);
+    const promptToSend = draftPrompt;
+    onClearDraftPrompt();
+    void sendTurnRef.current(promptToSend, true);
+  }, [draftPrompt, isOnline, serverLiveAiAvailable, preferDemoMode, onClearDraftPrompt]);
 
   const retryFailedTurn = () => {
     if (!failedTurnText || isSending) return;

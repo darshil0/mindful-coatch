@@ -399,17 +399,15 @@ export function computeWellnessStatistics(
   const recordedEnergyRatings = sevenDayWindow
     .map((d) => d.energyRating)
     .filter((v): v is number => v !== null);
-  const averageEnergyRating =
+  const exactMeanEnergy =
     recordedEnergyRatings.length > 0
-      ? Number(
-          (
-            recordedEnergyRatings.reduce((sum, val) => sum + val, 0) /
-            recordedEnergyRatings.length
-          ).toFixed(1)
-        )
+      ? recordedEnergyRatings.reduce((sum, val) => sum + val, 0) /
+        recordedEnergyRatings.length
       : null;
+  const averageEnergyRating =
+    exactMeanEnergy !== null ? Number(exactMeanEnergy.toFixed(1)) : null;
   const averageEnergyScore =
-    averageEnergyRating !== null ? Math.round(averageEnergyRating * 10) : null;
+    exactMeanEnergy !== null ? Math.round(exactMeanEnergy * 10) : null;
 
   const recordedStepValues = sevenDayWindow
     .map((d) => d.steps)

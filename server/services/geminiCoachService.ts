@@ -187,11 +187,14 @@ export async function generateLiveCoachReply(params: {
           }),
           12_500
         );
+        lastError = null;
         replyText = (response.text ?? '').trim();
         if (replyText) {
           lastWorkingModel = modelName;
-          lastError = null;
           break;
+        }
+        if (attempt < candidateModels.length - 1) {
+          await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
         }
       } catch (attemptErr: unknown) {
         lastError = attemptErr;
@@ -249,7 +252,7 @@ export async function generateLiveCoachReply(params: {
           'The live AI service is temporarily experiencing high demand. Retry in a moment or switch to Demo Coach for curated guidance.',
       };
     }
-    if (/API_KEY_INVALID|PERMISSION_DENIED|403/i.test(errMessage)) {
+    if (/API_KEY_INVALID|PERMISSION_DENIED|unregistered callers|401|403/i.test(errMessage)) {
       return {
         ok: false,
         status: 502,

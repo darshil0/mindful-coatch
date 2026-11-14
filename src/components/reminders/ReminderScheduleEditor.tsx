@@ -116,7 +116,7 @@ export function ReminderScheduleEditor({
           <div className="flex items-center justify-between gap-3">
             <label
               htmlFor={`${idPrefix}-morning-enabled`}
-              className="flex cursor-pointer items-center gap-2.5 min-h-[36px] text-sm font-medium text-[#1E2421]"
+              className="flex cursor-pointer items-center gap-2.5 min-h-[44px] text-sm font-medium text-[#1E2421]"
             >
               <input
                 id={`${idPrefix}-morning-enabled`}
@@ -142,7 +142,7 @@ export function ReminderScheduleEditor({
                 setTimeError(null);
                 setSavedNotice(null);
               }}
-              className="min-h-[40px] rounded-lg border border-[#CFCBC0] bg-white px-2.5 py-1.5 font-mono text-xs text-[#1E2421] disabled:opacity-50"
+              className="min-h-[44px] rounded-lg border border-[#CFCBC0] bg-white px-2.5 py-1.5 font-mono text-xs text-[#1E2421] disabled:opacity-50"
             />
           </div>
           <p className="mt-1.5 text-xs text-[#5C6762]">
@@ -155,7 +155,7 @@ export function ReminderScheduleEditor({
           <div className="flex items-center justify-between gap-3">
             <label
               htmlFor={`${idPrefix}-evening-enabled`}
-              className="flex cursor-pointer items-center gap-2.5 min-h-[36px] text-sm font-medium text-[#1E2421]"
+              className="flex cursor-pointer items-center gap-2.5 min-h-[44px] text-sm font-medium text-[#1E2421]"
             >
               <input
                 id={`${idPrefix}-evening-enabled`}
@@ -181,7 +181,7 @@ export function ReminderScheduleEditor({
                 setTimeError(null);
                 setSavedNotice(null);
               }}
-              className="min-h-[40px] rounded-lg border border-[#CFCBC0] bg-white px-2.5 py-1.5 font-mono text-xs text-[#1E2421] disabled:opacity-50"
+              className="min-h-[44px] rounded-lg border border-[#CFCBC0] bg-white px-2.5 py-1.5 font-mono text-xs text-[#1E2421] disabled:opacity-50"
             />
           </div>
           <p className="mt-1.5 text-xs text-[#5C6762]">
@@ -194,7 +194,7 @@ export function ReminderScheduleEditor({
       <div className="rounded-xl border border-[#ECEAE3] bg-[#FAF9F6] px-3.5 py-3">
         <label
           htmlFor={`${idPrefix}-browser-alerts`}
-          className="flex cursor-pointer items-start gap-2.5 min-h-[36px]"
+          className="flex cursor-pointer items-start gap-2.5 min-h-[44px]"
         >
           <input
             id={`${idPrefix}-browser-alerts`}

@@ -216,7 +216,7 @@ export function CoachView({
                 }
               }}
               placeholder={`Ask a practical question about ${goalMeta.label.toLowerCase()} or daily routines…`}
-              className="w-full flex-1 rounded-xl border border-[#CFCBC0] bg-[#FAF9F6] px-4 py-2.5 text-sm text-[#1E2421] placeholder:text-[#76827C] focus:border-[#2F5D50] focus:bg-white disabled:opacity-60 resize-y"
+              className="w-full flex-1 rounded-xl border border-[#CFCBC0] bg-[#FAF9F6] px-4 py-2.5 text-sm text-[#1E2421] placeholder:text-[#5C6762] focus:border-[#2F5D50] focus:bg-white disabled:opacity-60 resize-y"
             />
             <button
               type="submit"
@@ -232,7 +232,7 @@ export function CoachView({
             <button
               type="button"
               onClick={() => onNavigate('profile')}
-              className="underline underline-offset-4 hover:text-[#1E2421]"
+              className="inline-flex min-h-[44px] items-center underline underline-offset-4 hover:text-[#1E2421]"
             >
               Manage chat-history saving in Profile
             </button>

@@ -10,8 +10,12 @@ export function jsonErrorHandler(
     next();
     return;
   }
-  const status = (err as { status?: number }).status;
-  const type = (err as { type?: string }).type;
+  const errRecord =
+    typeof err === 'object' && err !== null
+      ? (err as { status?: number; type?: string })
+      : {};
+  const status = errRecord.status;
+  const type = errRecord.type;
   if (status === 413 || type === 'entity.too.large') {
     res.status(413).json({
       error: 'Request payload is too large. Please shorten your message.',

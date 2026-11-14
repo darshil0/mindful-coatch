@@ -35,7 +35,11 @@ export function createCoachRouter(): Router {
       return;
     }
 
-    const body = (req.body ?? {}) as IncomingChatBody;
+    const body = (
+      typeof req.body === 'object' && req.body !== null && !Array.isArray(req.body)
+        ? req.body
+        : {}
+    ) as IncomingChatBody;
     const rawMessage = typeof body.message === 'string' ? body.message.trim() : '';
 
     if (!rawMessage) {

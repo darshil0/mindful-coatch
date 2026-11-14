@@ -23,6 +23,7 @@ import { WeeklyWellnessScoreCard } from './WeeklyWellnessScoreCard';
 interface HomeViewProps {
   profile: UserProfile;
   todayDateKey: string;
+  nowMinutes: number;
   todayEntry: DailyEntry | undefined;
   entriesByDate: Record<string, DailyEntry>;
   mindfulStreak: MindfulStreakState;
@@ -43,6 +44,7 @@ interface HomeViewProps {
 export function HomeView({
   profile,
   todayDateKey,
+  nowMinutes,
   todayEntry,
   entriesByDate,
   mindfulStreak,
@@ -77,7 +79,7 @@ export function HomeView({
             id="home-greeting-heading"
             className="mt-1 font-display text-3xl sm:text-4xl font-medium tracking-tight text-[#1E2421]"
           >
-            {getTimeOfDayGreeting()}, {profile.preferredName}
+            {getTimeOfDayGreeting(Math.floor(nowMinutes / 60))}, {profile.preferredName}
           </h1>
           <p className="mt-2 max-w-xl text-base text-[#4A5550]">
             {goalMeta.dashboardNote}

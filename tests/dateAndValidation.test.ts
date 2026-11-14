@@ -1,9 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getLocalDateKey, getPastLocalDateKeys, isValidDateKey } from '../src/lib/dateUtils';
+import {
+  getLocalDateKey,
+  getPastLocalDateKeys,
+  isValidDateKey,
+  shiftLocalDateKey,
+} from '../src/lib/dateUtils';
 import {
   isValidWellnessGoal,
   MAX_REFLECTIVE_NOTE_LENGTH,
+  normalizeDailyEntry,
   validateEnergyRating,
   validatePreferredName,
   validateReflectiveNote,
@@ -70,4 +76,25 @@ test('validation distinguishes missing inputs from recorded zero values and enfo
     validateReflectiveNote('a'.repeat(MAX_REFLECTIVE_NOTE_LENGTH + 1)).valid,
     false
   );
+
+  // Invalid date key guards avoid NaN-NaN-NaN corruption
+  assert.equal(isValidDateKey(shiftLocalDateKey('not-a-date', -1)), true);
+  assert.equal(
+    getPastLocalDateKeys(7, 'not-a-date').every((k) => isValidDateKey(k)),
+    true
+  );
+
+  // normalizeDailyEntry preserves explicit zeros and strips invalid numbers/control chars
+  const normalized = normalizeDailyEntry({
+    date: '2026-11-14',
+    energyRating: 99,
+    steps: 0,
+    sleepMinutes: 0,
+    reflectiveNote: '  Line one\u0007\r\nLine two  ',
+    updatedAt: '2026-11-14T10:00:00.000Z',
+  });
+  assert.equal(normalized.energyRating, null);
+  assert.equal(normalized.steps, 0);
+  assert.equal(normalized.sleepMinutes, 0);
+  assert.equal(normalized.reflectiveNote, 'Line one\nLine two');
 });

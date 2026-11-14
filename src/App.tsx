@@ -27,7 +27,7 @@ export default function App() {
 
   const statistics = useMemo(
     () => store.computeStatistics(env.todayDateKey),
-    [store, env.todayDateKey]
+    [store.computeStatistics, env.todayDateKey]
   );
 
   const evaluatedReminder = useMemo(
@@ -94,6 +94,7 @@ export default function App() {
         <HomeView
           profile={store.profile}
           todayDateKey={env.todayDateKey}
+          nowMinutes={env.nowMinutes}
           todayEntry={store.entriesByDate[env.todayDateKey]}
           entriesByDate={store.entriesByDate}
           mindfulStreak={statistics.mindfulStreak}

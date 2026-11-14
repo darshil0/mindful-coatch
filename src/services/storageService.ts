@@ -21,9 +21,8 @@ import {
 } from '../lib/reminders';
 import {
   isValidWellnessGoal,
-  MAX_REFLECTIVE_NOTE_LENGTH,
+  normalizeDailyEntry,
   validatePreferredName,
-  validateReflectiveNote,
 } from '../lib/validation';
 
 export interface StorageLike {
@@ -232,54 +231,24 @@ export class WellnessStorageStore {
           continue;
         }
         const rec = item as Record<string, unknown>;
-        const energyRating =
-          typeof rec.energyRating === 'number' &&
-          Number.isInteger(rec.energyRating) &&
-          rec.energyRating >= 1 &&
-          rec.energyRating <= 10
-            ? rec.energyRating
-            : null;
-        const steps =
-          typeof rec.steps === 'number' &&
-          Number.isSafeInteger(rec.steps) &&
-          rec.steps >= 0 &&
-          rec.steps <= 250000
-            ? rec.steps
-            : null;
-        const sleepMinutes =
-          typeof rec.sleepMinutes === 'number' &&
-          Number.isInteger(rec.sleepMinutes) &&
-          rec.sleepMinutes >= 0 &&
-          rec.sleepMinutes <= 1440
-            ? rec.sleepMinutes
-            : null;
+        const normalized = normalizeDailyEntry({
+          date: dateKey,
+          energyRating: rec.energyRating as number | null,
+          steps: rec.steps as number | null,
+          sleepMinutes: rec.sleepMinutes as number | null,
+          reflectiveNote:
+            typeof rec.reflectiveNote === 'string' ? rec.reflectiveNote : null,
+          updatedAt:
+            typeof rec.updatedAt === 'string'
+              ? rec.updatedAt
+              : new Date().toISOString(),
+        });
 
-        let reflectiveNote: string | null = null;
-        if (typeof rec.reflectiveNote === 'string') {
-          const check = validateReflectiveNote(rec.reflectiveNote);
-          reflectiveNote = check.valid
-            ? check.value
-            : rec.reflectiveNote.trim().slice(0, MAX_REFLECTIVE_NOTE_LENGTH).trim() || null;
-        }
-
-        if (
-          energyRating === null &&
-          steps === null &&
-          sleepMinutes === null &&
-          reflectiveNote === null
-        ) {
+        if (!hasAnyRecordedMetric(normalized)) {
           continue;
         }
 
-        clean[dateKey] = {
-          date: dateKey,
-          energyRating,
-          steps,
-          sleepMinutes,
-          reflectiveNote,
-          updatedAt:
-            typeof rec.updatedAt === 'string' ? rec.updatedAt : new Date().toISOString(),
-        };
+        clean[dateKey] = normalized;
       }
       return clean;
     } catch {
@@ -297,18 +266,7 @@ export class WellnessStorageStore {
   ): Record<string, DailyEntry> {
     const current = this.loadEntries();
     const updated: Record<string, DailyEntry> = { ...current };
-    const sanitizedNote =
-      typeof entry.reflectiveNote === 'string'
-        ? validateReflectiveNote(entry.reflectiveNote)
-        : null;
-    const normalizedEntry: DailyEntry = {
-      ...entry,
-      reflectiveNote: sanitizedNote
-        ? sanitizedNote.valid
-          ? sanitizedNote.value
-          : entry.reflectiveNote?.trim().slice(0, MAX_REFLECTIVE_NOTE_LENGTH).trim() || null
-        : null,
-    };
+    const normalizedEntry = normalizeDailyEntry(entry);
     if (!hasAnyRecordedMetric(normalizedEntry)) {
       delete updated[entry.date];
     } else {
