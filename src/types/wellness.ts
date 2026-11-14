@@ -105,6 +105,13 @@ export interface WellnessStatistics {
   };
 }
 
+export interface WeeklyScoreInsight {
+  id: 'overall-score' | 'energy' | 'sleep' | 'consistency' | 'steps';
+  title: string;
+  metricLabel: string;
+  tip: string;
+}
+
 export interface WeeklyProgressHighlight {
   id: 'peak-energy' | 'best-sleep' | 'top-steps' | 'sessions' | 'reflections';
   label: string;
@@ -137,6 +144,7 @@ export interface WeeklyProgressReport {
     stepsDays: number;
   };
   highlights: WeeklyProgressHighlight[];
+  scoreInsights: WeeklyScoreInsight[];
   nextWeekFocus: string[];
   plainTextReport: string;
 }

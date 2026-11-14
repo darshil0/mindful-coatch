@@ -1,5 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { Check, Copy, Download, FileText, RefreshCw } from 'lucide-react';
+import {
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Download,
+  FileText,
+  RefreshCw,
+} from 'lucide-react';
 import type {
   DailyEntry,
   NavDestination,
@@ -69,6 +77,16 @@ export function WeeklyProgressReportCard({
     null
   );
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const [expandedInsightIds, setExpandedInsightIds] = useState<Record<string, boolean>>({
+    'overall-score': true,
+  });
+
+  const toggleInsight = (id: string) => {
+    setExpandedInsightIds((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
 
   const livePreviewReport = useMemo(
     () =>
@@ -120,6 +138,9 @@ export function WeeklyProgressReportCard({
   };
 
   const periodRangeLabel = `${formatReadableDate(livePreviewReport.periodStart)} – ${formatReadableDate(livePreviewReport.periodEnd)}`;
+  const activeInsights = generatedReport
+    ? generatedReport.scoreInsights
+    : livePreviewReport.scoreInsights;
 
   return (
     <section
@@ -384,6 +405,75 @@ export function WeeklyProgressReportCard({
           </div>
         </div>
       )}
+
+      {/* Collapsible Score-Based Wellness Insight Cards */}
+      <div
+        data-testid="weekly-score-insights-section"
+        className="mt-5 border-t border-[#ECEAE3] pt-5"
+      >
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="text-xs font-medium text-[#5C6762]">
+            Score-based wellness tips
+          </h3>
+          <span className="text-xs text-[#5C6762]">
+            Select a card to expand or collapse
+          </span>
+        </div>
+
+        <div className="mt-3 space-y-2">
+          {activeInsights.map((insight) => {
+            const isExpanded = Boolean(expandedInsightIds[insight.id]);
+            const panelId = `weekly-insight-panel-${insight.id}`;
+            return (
+              <div
+                key={insight.id}
+                data-testid={`weekly-insight-card-${insight.id}`}
+                className="rounded-xl bg-[#FAF9F6]"
+              >
+                <button
+                  type="button"
+                  aria-expanded={isExpanded}
+                  aria-controls={panelId}
+                  onClick={() => toggleInsight(insight.id)}
+                  className="flex min-h-[44px] w-full items-center justify-between gap-3 rounded-xl px-4 py-2.5 text-left transition-colors hover:bg-[#F2F0EA]"
+                >
+                  <span className="min-w-0 text-sm">
+                    <span className="font-medium text-[#1E2421]">{insight.title}</span>
+                    <span aria-hidden="true" className="mx-1.5 text-[#9BA39E]">
+                      ·
+                    </span>
+                    <span className="font-mono text-xs text-[#5C6762] tabular-nums">
+                      {insight.metricLabel}
+                    </span>
+                  </span>
+                  {isExpanded ? (
+                    <ChevronUp
+                      className="h-4 w-4 shrink-0 text-[#5C6762]"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <ChevronDown
+                      className="h-4 w-4 shrink-0 text-[#5C6762]"
+                      aria-hidden="true"
+                    />
+                  )}
+                </button>
+
+                {isExpanded && (
+                  <div
+                    id={panelId}
+                    className="border-t border-[#ECEAE3] px-4 py-3"
+                  >
+                    <p className="text-sm leading-relaxed text-[#4A5550]">
+                      {insight.tip}
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </section>
   );
 }

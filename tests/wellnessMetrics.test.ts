@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildWeeklyProgressReport,
+  buildWeeklyScoreInsights,
   computeMindfulStreak,
   computeSelfReportedEnergyScore,
   computeWellnessStatistics,
@@ -524,5 +525,47 @@ test('buildWeeklyProgressReport summarizes empty and active 7-day windows accura
   assert.match(report.plainTextReport, /Peak energy day: 90 \/ 100/);
   assert.match(report.plainTextReport, /NEXT WEEK FOCUS/);
 });
+
+test('buildWeeklyScoreInsights returns concise one-sentence tips grounded in weekly score tiers', () => {
+  const emptyStats = computeWellnessStatistics({}, [], '2026-11-14');
+  const emptyInsights = buildWeeklyScoreInsights(emptyStats.weeklyWellnessScore, 'sleep');
+  assert.equal(emptyInsights.length, 1);
+  assert.equal(emptyInsights[0].id, 'overall-score');
+  assert.equal(emptyInsights[0].metricLabel, 'No 7-day score yet');
+  assert.match(emptyInsights[0].tip, /^[^.!?]+[.!?]$/);
+
+  const steadyStats = computeWellnessStatistics(
+    {
+      '2026-11-14': {
+        date: '2026-11-14',
+        energyRating: 8,
+        steps: 6500,
+        sleepMinutes: 450,
+        updatedAt: '2026-11-14T10:00:00.000Z',
+      },
+    },
+    [],
+    '2026-11-14'
+  );
+  const steadyInsights = buildWeeklyScoreInsights(
+    steadyStats.weeklyWellnessScore,
+    'sleep'
+  );
+  assert.ok(steadyInsights.length >= 2);
+  assert.equal(steadyInsights[0].id, 'overall-score');
+  assert.match(steadyInsights[0].metricLabel, /^69 \/ 100 · Steady balance$/);
+  for (const card of steadyInsights) {
+    assert.match(card.tip, /^[^.!?]+[.!?]$/);
+  }
+  assert.equal(
+    steadyInsights.some((c) => c.id === 'consistency' && c.title.includes('focus')),
+    true
+  );
+  assert.equal(
+    steadyInsights.some((c) => c.id === 'sleep' && c.title.includes('strength')),
+    true
+  );
+});
+
 
 

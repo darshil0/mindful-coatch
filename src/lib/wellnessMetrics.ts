@@ -6,6 +6,7 @@ import type {
   ReflectiveNoteEntry,
   WeeklyProgressHighlight,
   WeeklyProgressReport,
+  WeeklyScoreInsight,
   WeeklyWellnessScore,
   WeeklyWellnessScoreComponent,
   WellnessGoal,
@@ -495,6 +496,117 @@ function getGoalNextStepSuggestion(
   }
 }
 
+function buildComponentFocusTip(
+  component: WeeklyWellnessScoreComponent & { score: number }
+): string {
+  switch (component.id) {
+    case 'energy':
+      return component.score < 60
+        ? `Your 7-day energy average (${component.score}/100) dipped this week, so try scheduling brief daylight or hydration breaks before afternoon fatigue sets in.`
+        : `To support your ${component.score}/100 weekly energy average, pair steady morning routines with a short midday reset when focus fades.`;
+    case 'sleep':
+      return component.score < 70
+        ? `With your weekly sleep score at ${component.score}/100, setting a gentle wind-down cue 15 minutes earlier can ease the transition toward 7–9 hours of rest.`
+        : `Your ${component.score}/100 sleep score is close to the 7–9 hour range, and keeping a consistent lights-out cue helps protect that rest.`;
+    case 'consistency':
+      return component.score < 70
+        ? `A ${component.score}/100 consistency score leaves room for gentle cues—try pairing your daily check-in with an existing morning or evening habit.`
+        : `Your ${component.score}/100 consistency score shows steady check-ins, and even a brief reflection on busy days keeps your rhythm alive.`;
+    case 'steps':
+      return component.score < 60
+        ? `At ${component.score}/100 for movement this week, a relaxed 10-minute walk after a meal is an approachable way to add comfortable daily steps.`
+        : `Your ${component.score}/100 movement average shows solid activity, and short stretch or stroll breaks can keep energy steady between seated blocks.`;
+  }
+}
+
+function buildComponentStrengthTip(
+  component: WeeklyWellnessScoreComponent & { score: number }
+): string {
+  switch (component.id) {
+    case 'energy':
+      return `Your energy average (${component.score}/100) was a bright spot this week—notice which daily routines helped you feel most steady and repeat them.`;
+    case 'sleep':
+      return `Sleep was a steady anchor at ${component.score}/100 this week, giving the rest of your daily habits a reliable foundation.`;
+    case 'consistency':
+      return `Your ${component.score}/100 consistency score stands out this week—showing up regularly matters more than chasing perfect numbers.`;
+    case 'steps':
+      return `Movement stood out at ${component.score}/100 this week, offering natural support for your daily mood and evening rest.`;
+  }
+}
+
+/**
+ * Generates compact, collapsible one-sentence wellness insight cards
+ * strictly grounded in the user's weekly wellness score and recorded component averages.
+ */
+export function buildWeeklyScoreInsights(
+  weeklyScore: WeeklyWellnessScore,
+  primaryGoal: WellnessGoal
+): WeeklyScoreInsight[] {
+  if (weeklyScore.score === null) {
+    return [
+      {
+        id: 'overall-score',
+        title: 'Score readiness',
+        metricLabel: 'No 7-day score yet',
+        tip: 'Save one daily check-in or finish a brief guided session to unlock personalized weekly score tips.',
+      },
+    ];
+  }
+
+  const score = weeklyScore.score;
+  const goalLabel = getGoalMetadata(primaryGoal).label.toLowerCase();
+
+  let overallTip: string;
+  if (score >= 80) {
+    overallTip = `Your weekly score of ${score}/100 reflects a strong rhythm—keep your ${goalLabel} habits light and repeatable so consistency stays effortless.`;
+  } else if (score >= 60) {
+    overallTip = `With a steady weekly score of ${score}/100, adding one small ${goalLabel}-focused pause on busy days can gently lift your baseline.`;
+  } else if (score >= 40) {
+    overallTip = `At ${score}/100 this week, choosing a single repeatable anchor—such as a 3-minute guided session or steady check-in time—helps build calm momentum.`;
+  } else {
+    overallTip = `Starting from ${score}/100 this week, focus on one low-effort win each day like a quick energy check-in rather than trying to improve everything at once.`;
+  }
+
+  const insights: WeeklyScoreInsight[] = [
+    {
+      id: 'overall-score',
+      title: 'Weekly score insight',
+      metricLabel: `${score} / 100 · ${weeklyScore.tierLabel}`,
+      tip: overallTip,
+    },
+  ];
+
+  const recordedComponents = weeklyScore.components.filter(
+    (c): c is WeeklyWellnessScoreComponent & { score: number } => c.score !== null
+  );
+
+  if (recordedComponents.length > 0) {
+    const lowest = recordedComponents.reduce((min, cur) =>
+      cur.score < min.score ? cur : min
+    );
+    insights.push({
+      id: lowest.id,
+      title: `${lowest.label} focus`,
+      metricLabel: `${lowest.score} / 100 · ${lowest.detail}`,
+      tip: buildComponentFocusTip(lowest),
+    });
+
+    const highest = recordedComponents.reduce((max, cur) =>
+      cur.score > max.score ? cur : max
+    );
+    if (highest.id !== lowest.id && highest.score >= 70) {
+      insights.push({
+        id: highest.id,
+        title: `${highest.label} strength`,
+        metricLabel: `${highest.score} / 100 · ${highest.detail}`,
+        tip: buildComponentStrengthTip(highest),
+      });
+    }
+  }
+
+  return insights;
+}
+
 /**
  * Generates a structured 7-day progress report directly from the computed WellnessStatistics engine.
  * Never fabricates missing data or treats unrecorded days as zero.
@@ -730,6 +842,11 @@ export function buildWeeklyProgressReport(params: {
     plainLines.push(`- ${tip}`);
   }
 
+  const scoreInsights = buildWeeklyScoreInsights(
+    statistics.weeklyWellnessScore,
+    primaryGoal
+  );
+
   return {
     periodStart,
     periodEnd,
@@ -755,6 +872,7 @@ export function buildWeeklyProgressReport(params: {
       stepsDays: statistics.averageSteps7d.includedCount,
     },
     highlights,
+    scoreInsights,
     nextWeekFocus,
     plainTextReport: plainLines.join('\n'),
   };
