@@ -456,6 +456,11 @@ test('buildWeeklyProgressReport summarizes empty and active 7-day windows accura
   assert.equal(emptyReport.highlights.length, 0);
   assert.match(emptyReport.narrativeSummary, /Missing days are never estimated/);
   assert.match(emptyReport.plainTextReport, /MINDFUL COACH — WEEKLY PROGRESS REPORT/);
+  assert.match(
+    emptyReport.shareableSnippet,
+    /Mindful Coach Weekly Check-In \(Sun, Nov 8 – Sat, Nov 14\)/
+  );
+  assert.match(emptyReport.shareableSnippet, /0\/7 active days logged yet this week\./);
 
   const entries = {
     '2026-11-10': {
@@ -524,6 +529,15 @@ test('buildWeeklyProgressReport summarizes empty and active 7-day windows accura
   assert.match(report.plainTextReport, /Prepared for: Alex \| Primary focus: Energy/);
   assert.match(report.plainTextReport, /Peak energy day: 90 \/ 100/);
   assert.match(report.plainTextReport, /NEXT WEEK FOCUS/);
+  assert.match(
+    report.shareableSnippet,
+    /Weekly Score: 74\/100 \(Steady balance\) · 3\/7 active days · 2-day streak/
+  );
+  assert.match(
+    report.shareableSnippet,
+    /Averages: Energy 77\/100 · Sleep 7h 15m · 6,500 avg steps · 1 session/
+  );
+  assert.match(report.shareableSnippet, /Focus \(Energy\):/);
 });
 
 test('buildWeeklyScoreInsights returns concise one-sentence tips grounded in weekly score tiers', () => {

@@ -847,6 +847,45 @@ export function buildWeeklyProgressReport(params: {
     primaryGoal
   );
 
+  const snippetAverages: string[] = [];
+  if (statistics.averageEnergy7d.averageScore !== null) {
+    snippetAverages.push(`Energy ${statistics.averageEnergy7d.averageScore}/100`);
+  }
+  if (statistics.averageSleep7d.averageMinutes !== null) {
+    snippetAverages.push(`Sleep ${formatSleepMinutes(statistics.averageSleep7d.averageMinutes)}`);
+  }
+  if (statistics.averageSteps7d.averageSteps !== null) {
+    snippetAverages.push(
+      `${statistics.averageSteps7d.averageSteps.toLocaleString('en-US')} avg steps`
+    );
+  }
+  if (statistics.completedSessionsInLast7 > 0) {
+    snippetAverages.push(
+      `${statistics.completedSessionsInLast7} ${statistics.completedSessionsInLast7 === 1 ? 'session' : 'sessions'}`
+    );
+  }
+
+  const snippetLines: string[] = [
+    `Mindful Coach Weekly Check-In (${formatReadableDate(periodStart)} – ${formatReadableDate(periodEnd)})`,
+  ];
+
+  if (!hasAnyActivity) {
+    snippetLines.push('0/7 active days logged yet this week.');
+  } else {
+    const scorePart =
+      statistics.weeklyWellnessScore.score !== null
+        ? `Weekly Score: ${statistics.weeklyWellnessScore.score}/100 (${statistics.weeklyWellnessScore.tierLabel})`
+        : 'Weekly activity logged';
+    snippetLines.push(
+      `${scorePart} · ${statistics.activeDaysInLast7}/7 active days · ${statistics.mindfulStreak.currentStreak}-day streak`
+    );
+    if (snippetAverages.length > 0) {
+      snippetLines.push(`Averages: ${snippetAverages.join(' · ')}`);
+    }
+  }
+  snippetLines.push(`Focus (${goalLabel}): ${nextWeekFocus[0]}`);
+  const shareableSnippet = snippetLines.join('\n');
+
   return {
     periodStart,
     periodEnd,
@@ -874,6 +913,7 @@ export function buildWeeklyProgressReport(params: {
     highlights,
     scoreInsights,
     nextWeekFocus,
+    shareableSnippet,
     plainTextReport: plainLines.join('\n'),
   };
 }

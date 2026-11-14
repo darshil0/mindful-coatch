@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Weekly progress report & shareable snippet export**:
+  - Added `WeeklyProgressReport`, `WeeklyProgressHighlight`, and `WeeklyScoreInsight` types (`src/types/wellness.ts`), along with `buildWeeklyProgressReport` and `buildWeeklyScoreInsights` (`src/lib/wellnessMetrics.ts`) built on the existing `computeWellnessStatistics` engine.
+  - Added `WeeklyProgressReportCard` (`src/features/home/WeeklyProgressReportCard.tsx`) to `HomeView` to generate and display a 7-day progress digest (narrative summary, 6 tabular metrics, recorded highlights, next-week focus prompts, automatic stale-report refresh prompt, clipboard copy, and `.txt` export).
+  - Added small, collapsible **Score-based wellness tips** insight cards inside the Weekly Progress section offering one-sentence wellness tips grounded in the user’s weekly wellness score tier and recorded component averages (`Energy`, `Sleep`, `Consistency`, `Movement`).
+  - Added an **Export snippet** button and **Shareable text snippet** panel in `WeeklyProgressReportCard` to preview, copy to clipboard, or share via the Web Share API (`navigator.share` when available), with unit test coverage in `tests/wellnessMetrics.test.ts`.
 - **Weekly wellness score summary**:
   - Added `WeeklyWellnessScore`, `WeeklyWellnessScoreComponent`, and `WellnessStatistics.weeklyWellnessScore` (`src/types/wellness.ts`), along with `scoreSleepMinutesForWellness`, `scoreStepsForWellness`, and `computeWeeklyWellnessScore` (`src/lib/wellnessMetrics.ts`).
   - Scores up to four recorded 7-day inputs—Energy (35%), Sleep relative to 7–9 hours (25%), Check-in & session consistency (25%), and Movement up to 8,000 steps (15%)—using weighted renormalization so unrecorded categories are omitted rather than treated as zero.

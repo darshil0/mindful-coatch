@@ -12,6 +12,9 @@ Built with React, TypeScript, Vite, and Express, the app keeps personal wellness
 - Gentle morning check-in and evening reflection reminders with customizable local scheduling
 - Seven-day Recharts trend visualization (daily energy and completed mindfulness sessions), accessible text table, and Mindful Streak tracking
 - Weekly wellness score summary on Home calculated transparently from recorded 7-day energy, sleep, consistency, and movement without treating unrecorded metrics as zero
+- On-demand **Weekly progress report** section on Home built from the local statistics engine, featuring narrative summaries, highlights, next-week focus prompts, stale-data refresh detection, clipboard copy, and `.txt` export
+- Collapsible **Score-based wellness tips** insight cards offering one-sentence guidance tailored to the user’s 7-day average score and recorded pillars
+- One-click **Export snippet** action to generate, copy, or share a concise text summary of weekly progress
 - Guided sessions for mindfulness, breathing, energy resets, and sleep wind-down
 - A supportive coach experience with live Gemini AI integration and a curated demo mode fallback
 - Privacy controls for chat-history persistence and local data deletion
@@ -78,6 +81,7 @@ http://localhost:3000
 | `npm test` | Runs the unit test suite |
 | `npm run lint` | Runs TypeScript type checking |
 | `npm run build` | Builds the production bundle |
+| `npm run preview` | Previews the built production bundle locally |
 | `npm start` | Starts the production server |
 | `npm run clean` | Removes build artifacts |
 
@@ -195,7 +199,7 @@ Response example:
 
 ## Privacy and Safety
 
-- Wellness data is stored locally in the browser by default.
+- Wellness data, weekly progress reports, and shareable snippets are computed locally in the browser and never leave the device unless explicitly copied or shared by the user.
 - Chat history persistence is disabled by default and can be toggled in app settings.
 - The app does not diagnose or prescribe treatment.
 - If urgent crisis or self-harm risk is detected, the app prioritizes emergency support guidance.

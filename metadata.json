@@ -1,6 +1,6 @@
 {
   "name": "Mindful Coach",
-  "description": "A calm, minimalist wellness coaching app featuring daily energy, sleep, step, and reflective-note check-ins, Mindful Streaks, customizable reminders, 7-day trend charts and wellness scores, timed mindfulness sessions, and supportive wellness coaching.",
+  "description": "A calm, minimalist wellness coaching app featuring daily energy, sleep, step, and reflective-note check-ins, Mindful Streaks, customizable reminders, 7-day trend charts and wellness scores, weekly progress reports with score-based tips and shareable text snippets, timed mindfulness sessions, and supportive wellness coaching.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

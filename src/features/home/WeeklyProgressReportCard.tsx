@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Check,
   ChevronDown,
@@ -7,6 +7,7 @@ import {
   Download,
   FileText,
   RefreshCw,
+  Share2,
 } from 'lucide-react';
 import type {
   DailyEntry,
@@ -77,6 +78,10 @@ export function WeeklyProgressReportCard({
     null
   );
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const [showSnippetExport, setShowSnippetExport] = useState(false);
+  const [snippetStatus, setSnippetStatus] = useState<
+    'idle' | 'copied' | 'shared' | 'failed'
+  >('idle');
   const [expandedInsightIds, setExpandedInsightIds] = useState<Record<string, boolean>>({
     'overall-score': true,
   });
@@ -141,6 +146,48 @@ export function WeeklyProgressReportCard({
   const activeInsights = generatedReport
     ? generatedReport.scoreInsights
     : livePreviewReport.scoreInsights;
+  const activeSnippet = generatedReport
+    ? generatedReport.shareableSnippet
+    : livePreviewReport.shareableSnippet;
+  const canUseWebShare =
+    typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+
+  useEffect(() => {
+    setSnippetStatus('idle');
+  }, [activeSnippet]);
+
+  const handleToggleSnippetExport = async () => {
+    if (showSnippetExport) {
+      setShowSnippetExport(false);
+      setSnippetStatus('idle');
+      return;
+    }
+    setShowSnippetExport(true);
+    const ok = await copyTextToClipboard(activeSnippet);
+    setSnippetStatus(ok ? 'copied' : 'idle');
+  };
+
+  const handleCopySnippet = async () => {
+    const ok = await copyTextToClipboard(activeSnippet);
+    setSnippetStatus(ok ? 'copied' : 'failed');
+  };
+
+  const handleNativeShareSnippet = async () => {
+    if (!canUseWebShare) return;
+    try {
+      await navigator.share({
+        title: 'Mindful Coach Weekly Summary',
+        text: activeSnippet,
+      });
+      setSnippetStatus('shared');
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
+      const ok = await copyTextToClipboard(activeSnippet);
+      setSnippetStatus(ok ? 'copied' : 'failed');
+    }
+  };
 
   return (
     <section
@@ -160,24 +207,136 @@ export function WeeklyProgressReportCard({
           </h2>
         </div>
 
-        <button
-          type="button"
-          onClick={handleGenerateReport}
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#2F5D50] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#254B40] whitespace-nowrap shrink-0"
-        >
-          {generatedReport ? (
-            <>
-              <RefreshCw className="h-4 w-4" aria-hidden="true" />
-              <span>Refresh report</span>
-            </>
-          ) : (
-            <>
-              <FileText className="h-4 w-4" aria-hidden="true" />
-              <span>Generate report</span>
-            </>
-          )}
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            aria-expanded={showSnippetExport}
+            aria-controls="shareable-weekly-snippet-panel"
+            onClick={handleToggleSnippetExport}
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-[#E6E4DD] bg-[#FAF9F6] px-3.5 py-2 text-xs font-medium text-[#1E2421] transition-colors hover:bg-[#F2F0EA] whitespace-nowrap shrink-0"
+          >
+            <Share2 className="h-3.5 w-3.5 text-[#2F5D50]" aria-hidden="true" />
+            <span>Export snippet</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleGenerateReport}
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#2F5D50] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#254B40] whitespace-nowrap shrink-0"
+          >
+            {generatedReport ? (
+              <>
+                <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                <span>Refresh report</span>
+              </>
+            ) : (
+              <>
+                <FileText className="h-4 w-4" aria-hidden="true" />
+                <span>Generate report</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
+
+      {showSnippetExport && (
+        <div
+          id="shareable-weekly-snippet-panel"
+          data-testid="shareable-snippet-panel"
+          className="mt-4 rounded-xl bg-[#FAF9F6] p-4 sm:p-5 space-y-3"
+        >
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <label
+              htmlFor="weekly-shareable-snippet-textarea"
+              className="text-xs font-medium text-[#1E2421]"
+            >
+              Shareable text snippet
+            </label>
+            <span className="text-xs text-[#5C6762]">
+              Ready to paste into notes, chat, or email
+            </span>
+          </div>
+
+          <textarea
+            id="weekly-shareable-snippet-textarea"
+            readOnly
+            rows={6}
+            value={activeSnippet}
+            onFocus={(e) => e.currentTarget.select()}
+            className="w-full rounded-xl border border-[#E6E4DD] bg-white px-3.5 py-2.5 font-mono text-xs leading-relaxed text-[#1E2421] focus:border-[#2F5D50]"
+          />
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onClick={handleCopySnippet}
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-[#E6E4DD] bg-white px-3.5 py-2 text-xs font-medium text-[#1E2421] transition-colors hover:bg-[#F2F0EA] whitespace-nowrap"
+              >
+                {snippetStatus === 'copied' ? (
+                  <Check className="h-3.5 w-3.5 text-[#2F5D50]" aria-hidden="true" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5 text-[#2F5D50]" aria-hidden="true" />
+                )}
+                <span>
+                  {snippetStatus === 'copied' ? 'Copied snippet' : 'Copy snippet'}
+                </span>
+              </button>
+
+              {canUseWebShare && (
+                <button
+                  type="button"
+                  onClick={handleNativeShareSnippet}
+                  className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-[#E6E4DD] bg-white px-3.5 py-2 text-xs font-medium text-[#1E2421] transition-colors hover:bg-[#F2F0EA] whitespace-nowrap"
+                >
+                  <Share2 className="h-3.5 w-3.5 text-[#2F5D50]" aria-hidden="true" />
+                  <span>Share</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-4">
+              {snippetStatus === 'copied' && (
+                <p
+                  role="status"
+                  aria-live="polite"
+                  className="text-xs font-medium text-[#2F5D50]"
+                >
+                  Copied snippet to clipboard.
+                </p>
+              )}
+              {snippetStatus === 'shared' && (
+                <p
+                  role="status"
+                  aria-live="polite"
+                  className="text-xs font-medium text-[#2F5D50]"
+                >
+                  Snippet shared.
+                </p>
+              )}
+              {snippetStatus === 'failed' && (
+                <p
+                  role="status"
+                  aria-live="polite"
+                  className="text-xs font-medium text-[#9B2C2C]"
+                >
+                  Copy blocked by browser—select the text above to copy manually.
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSnippetExport(false);
+                  setSnippetStatus('idle');
+                }}
+                className="min-h-[44px] px-2 text-xs font-medium text-[#5C6762] underline underline-offset-4 hover:text-[#1E2421] whitespace-nowrap"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {generatedReport === null ? (
         <div className="mt-4 rounded-xl bg-[#FAF9F6] p-4 sm:p-5">

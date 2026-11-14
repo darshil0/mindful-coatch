@@ -146,6 +146,7 @@ export interface WeeklyProgressReport {
   highlights: WeeklyProgressHighlight[];
   scoreInsights: WeeklyScoreInsight[];
   nextWeekFocus: string[];
+  shareableSnippet: string;
   plainTextReport: string;
 }
 
