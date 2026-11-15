@@ -1,35 +1,37 @@
 # Mindful Coach
 
-Mindful Coach is a calm, mobile-first wellness app that helps people track daily energy, sleep, steps, and guided mindfulness sessions while offering supportive coaching guidance without requiring an account.
+Mindful Coach is a calm, mobile-first wellness app for tracking daily energy, sleep, steps, and guided mindfulness sessions, with supportive coaching guidance. No account is required.
 
-Built with React, TypeScript, Vite, and Express, the app keeps personal wellness data in local browser storage by default and routes live coach requests through a server-side AI integration when configured.
+It is built with React, TypeScript, Vite, and Express. Personal wellness data stays in your browser's local storage by default. Live coach requests are routed through a server-side AI integration when one is configured; otherwise the app uses a built-in Demo Coach.
 
 ## Features
 
-- Local onboarding with a preferred name and primary wellness goal (`Sleep`, `Stress`, `Energy`, or `Weight`)
-- Daily wellness check-ins for self-reported energy (`1–10`, displayed as `10–100`), sleep (`0–24h`), steps (`0+`, manual entry), and optional reflective notes (`<= 500` characters) stored by local calendar date
-- Chronological **Reflective notes** journal on Home with newest-first and oldest-first sorting
-- Gentle morning check-in and evening reflection reminders with customizable local scheduling (`morning < evening` when both are enabled), daily dismissal pruning, and optional browser alerts
-- Seven-day Recharts trend visualization (daily energy and completed mindfulness sessions), accessible text table, and **Mindful Streaks** tracking
-- **Weekly wellness score** calculated transparently from recorded 7-day metrics (Energy `35%`, Sleep relative to `7–9h` `25%`, Consistency `25%`, Movement toward `8,000` steps `15%`), reweighting only across recorded categories so missing entries are never treated as zero
-- On-demand **Weekly progress report** on Home built from the local statistics engine, featuring narrative summaries, recorded highlights, next-week focus prompts, stale-data refresh detection, clipboard copy, and `.txt` export
-- Collapsible **Score-based wellness tips** insight cards synced live to your 7-day average score and active wellness focus
-- One-click **Export snippet** panel to copy or share a concise text summary of weekly progress
-- Silent, text-guided sessions (Gentle breathing, Sleep wind-down, Mindfulness, Energy reset) using wall-clock timers that persist across tab navigation
-- Supportive wellness coaching via server-routed Gemini AI with a curated Demo Coach fallback and immediate client/server urgent crisis detection
-- Privacy controls for opt-in local chat-history persistence (off by default) and full local data deletion
+- **Local onboarding** with a preferred name and a primary wellness goal (Sleep, Stress, Energy, or Weight).
+- **Daily check-ins** for self-reported energy (`1–10`, displayed as `10–100`), sleep (`0–24` hours), steps (`0+`, manual entry), and an optional reflective note (up to `500` characters), stored by local calendar date.
+- **Reflective notes journal** on Home, sortable newest-first or oldest-first.
+- **Gentle reminders** for a morning check-in and evening reflection, with customizable local times (morning must be earlier than evening when both are enabled), daily dismissal pruning, and optional browser notifications.
+- **Seven-day trends**: a Recharts chart of daily energy and completed mindfulness sessions, an accessible text table, and **Mindful Streaks**.
+- **Weekly wellness score** calculated transparently from recorded 7-day metrics: Energy `35%`, Sleep relative to a `7–9h` target `25%`, Consistency `25%`, and Movement toward `8,000` steps `15%`. Weights are redistributed across recorded categories only, so missing entries are never counted as zero.
+- **Weekly progress report** on Home, generated on demand from the local statistics engine: a narrative summary, recorded highlights, next-week focus prompts, stale-data refresh detection, clipboard copy, and `.txt` export.
+- **Score-based wellness tips**: collapsible insight cards tied to your 7-day average score and active goal.
+- **Export snippet**: copy or share a concise text summary of your weekly progress.
+- **Guided sessions** (Gentle breathing, Sleep wind-down, Mindfulness, Energy reset): silent, text-guided, using wall-clock timers that keep running across tab navigation.
+- **AI wellness coaching** through a server-routed Gemini integration, with a curated Demo Coach fallback and immediate client- and server-side urgent-crisis detection.
+- **Privacy controls**: opt-in local chat-history persistence (off by default) and full local data deletion.
 
 ## Tech Stack
 
-- Frontend: React 19, TypeScript 7, Vite 8, Tailwind CSS 4, Recharts 3
-- Backend: Express 5, Node.js
-- AI: `@google/genai` SDK (`gemini-4-hydrogen` with `gemini-3.1-flash-lite` failover)
-- Testing: Node’s built-in test runner (`node:test`) executed with `tsx --test`
+- **Frontend:** React 19, TypeScript, Vite, Tailwind CSS 4, Recharts 3
+- **Backend:** Express 5 on Node.js
+- **AI:** `@google/genai` SDK, primary model `gemini-4-hydrogen` with `gemini-3.1-flash-lite` as failover
+- **Testing:** Node's built-in test runner (`node:test`), executed with `tsx --test`
+
+Exact dependency versions are pinned in `package.json`.
 
 ## Prerequisites
 
-- Node.js 22 or newer (with native TypeScript stripping for `npm start`)
-- npm (or Bun, if preferred)
+- Node.js **22.18 or newer**. `npm start` runs `node server.ts` directly and relies on Node's built-in TypeScript type stripping, which is enabled by default from 22.18.
+- npm (or Bun, if you prefer)
 
 ## Getting Started
 
@@ -53,13 +55,19 @@ Copy the example environment file:
 cp .env.example .env
 ```
 
-Then set a Gemini API key if you want live AI coaching enabled:
+To enable live AI coaching, set a Gemini API key. Keep it server-side only and never commit `.env`:
 
 ```env
 GEMINI_API_KEY="your_server_side_gemini_api_key"
 ```
 
-If `GEMINI_API_KEY` (or optional `GOOGLE_API_KEY` / `API_KEY` fallback) is not set, the app continues working cleanly in Demo Coach mode with built-in wellness guidance. (`APP_URL` in `.env.example` is optional hosting metadata provided by deployment environments.)
+| Variable | Required | Purpose |
+| :--- | :--- | :--- |
+| `GEMINI_API_KEY` | No | Enables live Gemini coaching. |
+| `GOOGLE_API_KEY`, `API_KEY` | No | Fallbacks used only if `GEMINI_API_KEY` is not set. |
+| `APP_URL` | No | Hosting metadata supplied by some deployment environments. |
+
+If no key is set, the app runs normally in Demo Coach mode with built-in wellness guidance.
 
 ### 3. Run the app
 
@@ -67,23 +75,26 @@ If `GEMINI_API_KEY` (or optional `GOOGLE_API_KEY` / `API_KEY` fallback) is not s
 npm run dev
 ```
 
-Then open:
-
-```text
-http://localhost:3000
-```
+Then open `http://localhost:3000`.
 
 ## Available Scripts
 
 | Command | Description |
 | :--- | :--- |
-| `npm run dev` | Starts the Express + Vite development server on port `3000` |
-| `npm test` | Runs the unit test suite (`tsx --test tests/*.test.ts`) |
-| `npm run lint` | Runs TypeScript type checking (`tsc --noEmit`) |
-| `npm run build` | Builds the production client bundle into `dist/` |
-| `npm run preview` | Previews the built Vite client bundle locally |
-| `npm start` | Starts the Express server (`node server.ts`; run `npm run build` and set `NODE_ENV=production` to serve `dist/`) |
-| `npm run clean` | Removes build artifacts (`dist`, `server.js`) |
+| `npm run dev` | Starts the Express + Vite development server on port `3000`. |
+| `npm test` | Runs the unit test suite (`tsx --test tests/*.test.ts`). |
+| `npm run lint` | Runs TypeScript type checking (`tsc --noEmit`). |
+| `npm run build` | Builds the production client bundle into `dist/`. |
+| `npm run preview` | Previews the built client bundle with Vite only. The Express API is not running, so the coach falls back to Demo Coach. |
+| `npm start` | Starts the Express server (`node server.ts`). Run `npm run build` first and set `NODE_ENV=production` so it serves `dist/`. |
+| `npm run clean` | Removes build artifacts (`dist`, `server.js`). |
+
+### Production
+
+```bash
+npm run build
+NODE_ENV=production npm start
+```
 
 ## Project Structure
 
@@ -92,10 +103,12 @@ http://localhost:3000
 ├── .env.example
 ├── .gitignore
 ├── CHANGELOG.md
+├── LICENSE
 ├── README.md
 ├── index.html
 ├── metadata.json
 ├── package.json
+├── bun.lock
 ├── server.ts
 ├── server/
 │   ├── config.ts
@@ -139,7 +152,7 @@ http://localhost:3000
 │   ├── services/
 │   │   ├── coachApiClient.ts
 │   │   └── storageService.ts
-│   ├── shared/
+│   ├── shared/            # code shared by client and server
 │   │   ├── apiTypes.ts
 │   │   └── coachSafety.ts
 │   └── types/
@@ -152,17 +165,14 @@ http://localhost:3000
 │   ├── storageService.test.ts
 │   └── wellnessMetrics.test.ts
 ├── tsconfig.json
-├── vite.config.ts
-└── bun.lock
+└── vite.config.ts
 ```
 
 ## Server API
 
 ### `GET /api/coach/status`
 
-Returns whether live Gemini credentials are configured on the server.
-
-Response example:
+Reports whether live Gemini credentials are configured on the server.
 
 ```json
 {
@@ -172,13 +182,15 @@ Response example:
 
 ### `POST /api/coach/chat`
 
-Generates a coaching response or an urgent safety resource notice.
-
-- **Validation & Safety:** Rejects empty or oversized messages (`> 1,200` characters) with HTTP `400`, and intercepts urgent self-harm or medical emergency language immediately (returning `mode: "demo"`, `isCrisisNotice: true`) before rate limiting or contacting Gemini.
-- **Rate Limiting:** Enforces a sliding-window per-IP limit (`15` requests per `60` seconds), returning HTTP `429` (`RATE_LIMITED`) when exceeded.
-- **Model Failover:** Normalizes up to `6` recent alternating history turns and tries `gemini-4-hydrogen` then `gemini-3.1-flash-lite` within a `20`-second overall deadline (returning `502`/`503`/`504` on upstream failures so the client falls back to Demo Coach).
+Returns a coaching reply or an urgent safety resource notice.
 
 Request body:
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `message` | string | Required. Non-empty, at most `1,200` characters. |
+| `goal` | string | The user's goal as a lowercase id: `sleep`, `stress`, `energy`, or `weight`. |
+| `history` | array | Optional recent turns as `{ "role": "user" \| "assistant", "content": string }`. |
 
 ```json
 {
@@ -191,7 +203,7 @@ Request body:
 }
 ```
 
-Response example:
+Response:
 
 ```json
 {
@@ -201,31 +213,27 @@ Response example:
 }
 ```
 
+`mode` is `"live"` when Gemini answered and `"demo"` for Demo Coach or crisis notices.
+
+Behavior, in order of evaluation:
+
+1. **Validation:** empty or oversized messages are rejected with HTTP `400`.
+2. **Crisis detection:** urgent self-harm or medical-emergency language is intercepted immediately and returns `mode: "demo"` with `isCrisisNotice: true`. This happens before rate limiting and before Gemini is contacted.
+3. **Rate limiting:** a sliding-window limit of `15` requests per `60` seconds per IP. Exceeding it returns HTTP `429` with code `RATE_LIMITED`.
+4. **Model failover:** up to `6` recent alternating history turns are normalized, then `gemini-4-hydrogen` is tried, followed by `gemini-3.1-flash-lite`, within a `20`-second overall deadline. Upstream failures return `502`, `503`, or `504`, and the client then falls back to Demo Coach.
+
 ## Privacy and Safety
 
-- Wellness entries, Mindful Streaks, reflective notes, weekly wellness scores, weekly progress reports, and shareable snippets are computed and stored locally in browser `localStorage` (falling back to session memory if storage is blocked or full) and never leave the device unless explicitly copied or shared by the user.
-- Chat history persistence is disabled by default and can be toggled in **Profile**.
-- Mindful Coach provides general wellness education only and does not diagnose, treat, or prescribe.
-- When urgent medical or self-harm language is detected, both the client and server immediately prioritize crisis support guidance (`911` / `988`) over routine coaching.
+- Wellness entries, Mindful Streaks, reflective notes, weekly scores, progress reports, and shareable snippets are computed and stored locally in browser `localStorage` (falling back to session memory if storage is blocked or full). They are never sent to the server and leave the device only if you copy or share them.
+- When live AI coaching is enabled, the text of your coach messages, your selected goal, and up to `6` recent chat turns are sent to the app's server and on to the Gemini API to generate a reply. Do not include information in coach messages that you would not want processed by that service. Demo Coach mode makes no external AI calls.
+- Chat-history persistence is off by default and can be enabled in **Profile**. You can delete all local data from the same screen.
+- Mindful Coach provides general wellness education only. It does not diagnose, treat, or prescribe, and it is not a substitute for professional medical or mental-health care.
+- When urgent medical or self-harm language is detected, both client and server prioritize crisis guidance over routine coaching. The built-in resources reference `911` and `988`, which are US numbers; if you are elsewhere, contact your local emergency services or crisis line.
 
 ## Release History
 
-See [CHANGELOG.md](./CHANGELOG.md) for a full summary of releases and fixes.
+See [CHANGELOG.md](./CHANGELOG.md) for releases and fixes.
 
 ## License
 
-Licensed under the **Apache License, Version 2.0** (`SPDX-License-Identifier: Apache-2.0`).
-
-```text
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    https://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-```
+Licensed under the Apache License, Version 2.0 (`SPDX-License-Identifier: Apache-2.0`). See [LICENSE](./LICENSE) for the full text.
