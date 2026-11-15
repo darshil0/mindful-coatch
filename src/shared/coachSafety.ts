@@ -8,8 +8,8 @@ export const MAX_COACH_HISTORY_TURNS = 6;
 export const MAX_COACH_HISTORY_TURN_CHARS = 1800;
 
 export const URGENT_HELP_PATTERNS: readonly RegExp[] = [
-  /\b(suicid(e|al)|kill myself|end my life|want to die|self[- ]?harm|hurt myself)\b/i,
-  /\b(overdose|can'?t breathe|chest pain|crushing pain|stroke symptoms|passing out)\b/i,
+  /\b(suicid(e|al)|kill myself|end my life|end it all|take my own life|want to die|don'?t want to live|do not want to live|no reason to live|better off dead|self[- ]?harm|harm(ing)? myself|hurt(ing)? myself|cut(ting)? myself)\b/i,
+  /\b(overdos(e|ed|ing)|swallowed pills|can'?t breathe|cannot breathe|trouble breathing|hard to breathe|shortness of breath|chest pain|crushing pain|stroke symptoms|passing out|severe bleeding)\b/i,
 ];
 
 export function detectUrgentSafetyConcern(message: string): boolean {

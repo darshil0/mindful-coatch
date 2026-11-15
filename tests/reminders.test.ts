@@ -131,3 +131,47 @@ test('pruneDismissalsToDate drops stale days and paused schedules report paused 
   assert.equal(paused.dueReminder, null);
   assert.equal(paused.statusSummary, 'Daily reminders are paused.');
 });
+
+test('evaluateReminderState falls back to unlogged morning check-in after evening completion and sanitizes inverted times', () => {
+  const today = '2026-11-12';
+
+  // Even at 9:00 PM, if evening session is completed/dismissed and morning check-in was never logged,
+  // morning reminder surfaces rather than disappearing silently.
+  const fallbackMorning = evaluateReminderState({
+    schedule: DEFAULT_REMINDER_SCHEDULE,
+    todayDateKey: today,
+    nowMinutes: 21 * 60,
+    todayHasEntry: false,
+    todayHasSession: true,
+    dismissals: {},
+  });
+  assert.equal(fallbackMorning.dueReminder?.slot, 'morning');
+
+  // If both were dismissed in the evening, status mentions morning dismissal
+  const bothDismissed = evaluateReminderState({
+    schedule: DEFAULT_REMINDER_SCHEDULE,
+    todayDateKey: today,
+    nowMinutes: 21 * 60,
+    todayHasEntry: false,
+    todayHasSession: false,
+    dismissals: { [today]: { morning: true, evening: true } },
+  });
+  assert.equal(bothDismissed.dueReminder, null);
+  assert.match(bothDismissed.statusSummary, /Morning reminder dismissed for today/);
+  assert.match(bothDismissed.statusSummary, /Evening reminder dismissed for today/);
+
+  // Equal or inverted enabled slot times reset safely so morning is never shadowed
+  const inverted = sanitizeReminderSchedule({
+    morning: { enabled: true, time: '21:00' },
+    evening: { enabled: true, time: '09:00' },
+    browserNotifications: false,
+  });
+  assert.equal(inverted.morning.time, DEFAULT_REMINDER_SCHEDULE.morning.time);
+  assert.equal(inverted.evening.time, DEFAULT_REMINDER_SCHEDULE.evening.time);
+
+  // Invalid todayDateKey returns empty dismissals
+  assert.deepEqual(
+    pruneDismissalsToDate({ '2026-11-12': { morning: true } }, 'bad-date'),
+    {}
+  );
+});

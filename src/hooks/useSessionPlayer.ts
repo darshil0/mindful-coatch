@@ -45,15 +45,24 @@ export function useSessionPlayer({
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
   const recordedRunIdsRef = useRef<Set<string>>(new Set());
 
+  const timerStateRef = useRef<SessionTimerState>(timerState);
+  timerStateRef.current = timerState;
+
   // Sync if navigated from Home "Open guided session"
   useEffect(() => {
     if (initialSessionId) {
       const target = getSessionById(initialSessionId);
       if (target) {
+        const currentTimer = timerStateRef.current;
+        const alreadyActiveSameSession =
+          currentTimer.sessionId === target.id &&
+          (currentTimer.status === 'running' || currentTimer.status === 'paused');
         setSelectedSessionId(target.id);
-        setSelectedDurationSec(target.defaultDurationSeconds);
-        setTimerState(createIdleSessionTimer(target.id, target.defaultDurationSeconds));
-        setNowMs(Date.now());
+        if (!alreadyActiveSameSession) {
+          setSelectedDurationSec(target.defaultDurationSeconds);
+          setTimerState(createIdleSessionTimer(target.id, target.defaultDurationSeconds));
+          setNowMs(Date.now());
+        }
       }
       onClearInitialSession();
     }
@@ -162,6 +171,13 @@ export function useSessionPlayer({
     setTimerState((prev) => endSessionEarly(prev, currentNow));
   };
 
+  const resetPlayer = () => {
+    setSelectedSessionId(null);
+    setSelectedDurationSec(180);
+    setTimerState(createIdleSessionTimer('mindfulness', 180));
+    setNowMs(Date.now());
+  };
+
   return {
     activeSession,
     selectedDurationSec,
@@ -174,5 +190,8 @@ export function useSessionPlayer({
     pause,
     resume,
     endEarly,
+    resetPlayer,
   };
 }
+
+export type SessionPlayerHookResult = ReturnType<typeof useSessionPlayer>;

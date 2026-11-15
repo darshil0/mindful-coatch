@@ -25,16 +25,6 @@ export function createCoachRouter(): Router {
   });
 
   router.post('/chat', async (req: Request, res: Response) => {
-    const clientIp = req.ip || 'local';
-    if (!coachRateLimiter.allow(clientIp)) {
-      res.status(429).json({
-        error:
-          'Too many messages sent in a short period. Please pause a moment and try again.',
-        code: 'RATE_LIMITED',
-      });
-      return;
-    }
-
     const body = (
       typeof req.body === 'object' && req.body !== null && !Array.isArray(req.body)
         ? req.body
@@ -58,12 +48,22 @@ export function createCoachRouter(): Router {
       return;
     }
 
-    // Immediate safety check before calling external AI
+    // Immediate safety check before rate limiting or calling external AI
     if (detectUrgentSafetyConcern(rawMessage)) {
       res.json({
         reply: URGENT_SAFETY_RESPONSE,
-        mode: isLiveGeminiConfigured() ? 'live' : 'demo',
+        mode: 'demo',
         isCrisisNotice: true,
+      });
+      return;
+    }
+
+    const clientIp = req.ip || 'local';
+    if (!coachRateLimiter.allow(clientIp)) {
+      res.status(429).json({
+        error:
+          'Too many messages sent in a short period. Please pause a moment and try again.',
+        code: 'RATE_LIMITED',
       });
       return;
     }

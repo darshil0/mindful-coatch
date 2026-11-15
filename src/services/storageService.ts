@@ -9,7 +9,7 @@ import type {
   UserPreferences,
   UserProfile,
 } from '../types/wellness';
-import { getLocalDateKey, isValidDateKey } from '../lib/dateUtils';
+import { getLocalDateKey, isValidDateKey, shiftLocalDateKey } from '../lib/dateUtils';
 import {
   computeMindfulStreak,
   hasAnyRecordedMetric,
@@ -116,7 +116,10 @@ export class WellnessStorageStore {
     if (this.persistentAvailable && this.browserStorage) {
       try {
         const val = this.browserStorage.getItem(key);
-        if (val !== null) return val;
+        if (val !== null) {
+          this.memoryFallback.set(key, val);
+          return val;
+        }
       } catch {
         this.persistentAvailable = false;
         this.notice =
@@ -195,7 +198,7 @@ export class WellnessStorageStore {
     if (!raw) return null;
     try {
       const parsed = JSON.parse(raw) as Record<string, unknown>;
-      if (!parsed || typeof parsed !== 'object') return null;
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
       const nameRaw = typeof parsed.preferredName === 'string' ? parsed.preferredName : '';
       const nameCheck = validatePreferredName(nameRaw);
       if (!nameCheck.valid || !isValidWellnessGoal(parsed.primaryGoal)) {
@@ -265,6 +268,9 @@ export class WellnessStorageStore {
     todayDateKey: string = getLocalDateKey()
   ): Record<string, DailyEntry> {
     const current = this.loadEntries();
+    if (!isValidDateKey(entry.date)) {
+      return current;
+    }
     const updated: Record<string, DailyEntry> = { ...current };
     const normalizedEntry = normalizeDailyEntry(entry);
     if (!hasAnyRecordedMetric(normalizedEntry)) {
@@ -326,16 +332,19 @@ export class WellnessStorageStore {
   public loadMindfulStreak(
     todayDateKey: string = getLocalDateKey()
   ): MindfulStreakState {
+    const safeTodayDateKey = isValidDateKey(todayDateKey)
+      ? todayDateKey
+      : getLocalDateKey();
     const raw = this.readRaw(STORAGE_KEYS.STREAK);
     if (!raw) {
-      return computeMindfulStreak({}, [], todayDateKey);
+      return computeMindfulStreak({}, [], safeTodayDateKey);
     }
     try {
       const parsed = JSON.parse(raw) as Record<string, unknown>;
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        return computeMindfulStreak({}, [], todayDateKey);
+        return computeMindfulStreak({}, [], safeTodayDateKey);
       }
-      const currentStreak =
+      const rawCurrentStreak =
         typeof parsed.currentStreak === 'number' &&
         Number.isInteger(parsed.currentStreak) &&
         parsed.currentStreak >= 0
@@ -356,13 +365,21 @@ export class WellnessStorageStore {
       const lastActiveDate = isValidDateKey(parsed.lastActiveDate)
         ? parsed.lastActiveDate
         : null;
+      const yesterdayDateKey = shiftLocalDateKey(safeTodayDateKey, -1);
+      const streakStillAlive =
+        lastActiveDate !== null &&
+        lastActiveDate <= safeTodayDateKey &&
+        lastActiveDate >= yesterdayDateKey;
+      const currentStreak = streakStillAlive ? rawCurrentStreak : 0;
+
       return {
         currentStreak,
         longestStreak: Math.max(longestStreak, currentStreak),
-        activeToday: parsed.activeToday === true && lastActiveDate === todayDateKey,
-        todayHasEntry: parsed.todayHasEntry === true && lastActiveDate === todayDateKey,
+        activeToday: parsed.activeToday === true && lastActiveDate === safeTodayDateKey,
+        todayHasEntry:
+          parsed.todayHasEntry === true && lastActiveDate === safeTodayDateKey,
         todayHasSession:
-          parsed.todayHasSession === true && lastActiveDate === todayDateKey,
+          parsed.todayHasSession === true && lastActiveDate === safeTodayDateKey,
         totalActiveDays,
         lastActiveDate,
         updatedAt:
@@ -371,7 +388,7 @@ export class WellnessStorageStore {
             : new Date().toISOString(),
       };
     } catch {
-      return computeMindfulStreak({}, [], todayDateKey);
+      return computeMindfulStreak({}, [], safeTodayDateKey);
     }
   }
 
@@ -396,7 +413,7 @@ export class WellnessStorageStore {
     if (!raw) return { ...DEFAULT_PREFERENCES };
     try {
       const parsed = JSON.parse(raw) as Record<string, unknown>;
-      if (!parsed || typeof parsed !== 'object') {
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
         return { ...DEFAULT_PREFERENCES };
       }
       const reduceMotion: ReduceMotionSetting =

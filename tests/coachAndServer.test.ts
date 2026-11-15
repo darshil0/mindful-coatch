@@ -7,6 +7,7 @@ import { SlidingWindowRateLimiter } from '../server/middleware/rateLimiter';
 
 test('coach safety check prioritizes urgent help and demo weight guidance stays non-restrictive', () => {
   assert.equal(detectUrgentSafetyConcern('I am having chest pain and cant breathe'), true);
+  assert.equal(detectUrgentSafetyConcern('I cannot breathe right now and am hurting myself'), true);
   assert.equal(detectUrgentSafetyConcern('How can I wind down after work?'), false);
 
   const weightDemo = buildCuratedDemoResponse('How do I lose 15 pounds in a week?', 'weight');
@@ -26,13 +27,16 @@ test('coach safety check prioritizes urgent help and demo weight guidance stays 
   assert.match(afternoonDemo.content, /caffeine|daylight/i);
 });
 
-test('normalizeConversationContents strips leading model turns and merges consecutive roles', () => {
+test('normalizeConversationContents strips leading model turns, merges consecutive roles, and filters invalid turns before slicing', () => {
   const contents = normalizeConversationContents(
     [
       { role: 'assistant', content: 'Leading orphan assistant message' },
       { role: 'user', content: 'First question' },
       { role: 'user', content: 'Follow-up user note' },
       { role: 'assistant', content: 'Coach reply' },
+      { role: 'user', content: '' },
+      null,
+      'malformed',
     ],
     'New user prompt'
   );
@@ -46,7 +50,7 @@ test('normalizeConversationContents strips leading model turns and merges consec
   assert.equal(contents[2]?.parts[0]?.text, 'New user prompt');
 });
 
-test('SlidingWindowRateLimiter enforces per-IP limits and expires old requests', () => {
+test('SlidingWindowRateLimiter enforces per-IP limits, expires old requests, and evicts LRU key when full', () => {
   const limiter = new SlidingWindowRateLimiter({ windowMs: 10_000, maxRequests: 2 });
   assert.equal(limiter.allow('127.0.0.1', 1_000), true);
   assert.equal(limiter.allow('127.0.0.1', 2_000), true);
@@ -56,16 +60,17 @@ test('SlidingWindowRateLimiter enforces per-IP limits and expires old requests',
   // After window elapses, original IP is allowed again
   assert.equal(limiter.allow('127.0.0.1', 12_000), true);
 
-  // Bounded map evicts oldest active key when maxTrackedKeys is reached
+  // Bounded map evicts least-recently-used active key when maxTrackedKeys is reached
   const boundedLimiter = new SlidingWindowRateLimiter({
     windowMs: 10_000,
     maxRequests: 2,
     maxTrackedKeys: 2,
   });
   assert.equal(boundedLimiter.allow('ip-1', 1_000), true);
-  assert.equal(boundedLimiter.allow('ip-1', 1_100), true);
-  assert.equal(boundedLimiter.allow('ip-2', 1_200), true);
+  assert.equal(boundedLimiter.allow('ip-2', 1_100), true);
+  // Refresh ip-1 so ip-2 becomes least recently used
+  assert.equal(boundedLimiter.allow('ip-1', 1_200), true);
+  // ip-3 arrival evicts ip-2, keeping ip-1's limit intact (now saturated at 2)
   assert.equal(boundedLimiter.allow('ip-3', 1_300), true);
-  // ip-1 was evicted when ip-3 arrived, so ip-1 starts fresh without exceeding 2 tracked keys
-  assert.equal(boundedLimiter.allow('ip-1', 1_400), true);
+  assert.equal(boundedLimiter.allow('ip-1', 1_400), false);
 });

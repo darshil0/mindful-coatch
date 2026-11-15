@@ -3,11 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import type { NavDestination, WellnessGoal } from './types/wellness';
 import { useWellnessStore } from './hooks/useWellnessStore';
 import { useEnvironmentState } from './hooks/useEnvironmentState';
 import { useReminderNotifications } from './hooks/useReminderNotifications';
+import { useSessionPlayer } from './hooks/useSessionPlayer';
 import { evaluateReminderState } from './lib/reminders';
 import { AppShell } from './components/layout/AppShell';
 import { OnboardingFlow } from './features/onboarding/OnboardingFlow';
@@ -24,6 +25,23 @@ export default function App() {
   const [focusCheckInSignal, setFocusCheckInSignal] = useState<number>(0);
   const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
   const [draftCoachPrompt, setDraftCoachPrompt] = useState<string | null>(null);
+
+  const handleClearInitialSession = useCallback(() => {
+    setPendingSessionId(null);
+  }, []);
+
+  const handleRecordSessionCompletion = useCallback(
+    (record: Parameters<typeof store.recordSessionCompletion>[0]) => {
+      store.recordSessionCompletion(record, env.todayDateKey);
+    },
+    [store.recordSessionCompletion, env.todayDateKey]
+  );
+
+  const sessionPlayer = useSessionPlayer({
+    initialSessionId: pendingSessionId,
+    onClearInitialSession: handleClearInitialSession,
+    onRecordSessionCompletion: handleRecordSessionCompletion,
+  });
 
   const statistics = useMemo(
     () => store.computeStatistics(env.todayDateKey),
@@ -62,6 +80,7 @@ export default function App() {
   };
 
   const handleDeleteAllLocalData = () => {
+    sessionPlayer.resetPlayer();
     store.deleteAllLocalData();
     setPendingSessionId(null);
     setDraftCoachPrompt(null);
@@ -104,11 +123,13 @@ export default function App() {
           effectiveReducedMotion={env.effectiveReducedMotion}
           focusCheckInSignal={focusCheckInSignal}
           onFocusCheckIn={() => setFocusCheckInSignal((n) => n + 1)}
-          onSaveDailyEntry={store.saveDailyEntry}
+          onSaveDailyEntry={(entry) => store.saveDailyEntry(entry, env.todayDateKey)}
           onDismissReminderForToday={(slot) =>
             store.dismissReminderForToday(slot, env.todayDateKey)
           }
-          onSaveReminderSchedule={store.updateReminderSchedule}
+          onSaveReminderSchedule={(next) =>
+            store.updateReminderSchedule(next, env.todayDateKey)
+          }
           onNavigate={setActiveDestination}
           onOpenSession={(sessionId) => {
             setPendingSessionId(sessionId);
@@ -124,11 +145,9 @@ export default function App() {
       {activeDestination === 'sessions' && (
         <SessionsView
           primaryGoal={store.profile.primaryGoal}
-          initialSessionId={pendingSessionId}
           effectiveReducedMotion={env.effectiveReducedMotion}
           completedSessions={store.completedSessions}
-          onRecordSessionCompletion={store.recordSessionCompletion}
-          onClearInitialSession={() => setPendingSessionId(null)}
+          player={sessionPlayer}
         />
       )}
 
@@ -141,6 +160,7 @@ export default function App() {
           draftPrompt={draftCoachPrompt}
           onClearDraftPrompt={() => setDraftCoachPrompt(null)}
           onAppendMessages={store.appendChatMessages}
+          onReplaceLastFallbackMessage={store.replaceLastFallbackMessage}
           onClearChatHistory={store.clearChatHistory}
           onAcknowledgeAiNotice={store.acknowledgeAiNotice}
           onNavigate={setActiveDestination}
@@ -157,7 +177,9 @@ export default function App() {
           hasAnyChatMessages={store.chatMessages.length > 0}
           onUpdateProfile={store.updateProfile}
           onUpdatePreferences={store.updatePreferences}
-          onUpdateReminderSchedule={store.updateReminderSchedule}
+          onUpdateReminderSchedule={(next) =>
+            store.updateReminderSchedule(next, env.todayDateKey)
+          }
           onClearChatHistory={store.clearChatHistory}
           onDeleteAllLocalData={handleDeleteAllLocalData}
         />

@@ -581,5 +581,46 @@ test('buildWeeklyScoreInsights returns concise one-sentence tips grounded in wee
   );
 });
 
+test('computeWellnessStatistics filters invalid session dates and omits 0-day streak from weekly snippet', () => {
+  const entries = {
+    '2026-11-10': {
+      date: '2026-11-10',
+      energyRating: 7,
+      steps: 5000,
+      sleepMinutes: 450,
+      updatedAt: '2026-11-10T10:00:00.000Z',
+    },
+  };
+  const sessions = [
+    {
+      completionId: 'bad-1',
+      runId: 'r-bad',
+      sessionId: 'mindfulness',
+      title: 'Mindfulness',
+      durationSeconds: 180,
+      completedAt: 'invalid',
+      date: 'invalid-date',
+    },
+  ];
+  const stats = computeWellnessStatistics(entries, sessions, '2026-11-14');
+  assert.equal(stats.totalCompletedSessions, 0);
+  assert.equal(stats.mindfulStreak.currentStreak, 0);
+
+  const report = buildWeeklyProgressReport({
+    statistics: stats,
+    preferredName: 'Alex',
+    primaryGoal: 'energy',
+    entriesByDate: entries,
+    generatedAt: '2026-11-14T18:00:00.000Z',
+  });
+  assert.doesNotMatch(report.shareableSnippet, /0-day streak/);
+  assert.match(report.shareableSnippet, /1\/7 active days$/m);
+
+  // Invalid todayDateKey falls back safely instead of zeroing out valid dates
+  const fallbackStreak = computeMindfulStreak(entries, [], 'not-a-date');
+  assert.equal(fallbackStreak.totalActiveDays, 1);
+  assert.equal(fallbackStreak.lastActiveDate, '2026-11-10');
+});
+
 
 

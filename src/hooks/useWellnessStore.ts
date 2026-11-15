@@ -43,11 +43,18 @@ export interface WellnessStoreHookResult {
   storageNotice: string | null;
   computeStatistics: (todayDateKey: string) => WellnessStatistics;
   completeOnboarding: (preferredName: string, primaryGoal: WellnessGoal) => void;
-  saveDailyEntry: (entry: DailyEntry) => void;
-  recordSessionCompletion: (record: CompletedSessionRecord) => void;
-  updateReminderSchedule: (nextSchedule: ReminderSchedule) => void;
+  saveDailyEntry: (entry: DailyEntry, todayDateKey?: string) => void;
+  recordSessionCompletion: (
+    record: CompletedSessionRecord,
+    todayDateKey?: string
+  ) => void;
+  updateReminderSchedule: (
+    nextSchedule: ReminderSchedule,
+    todayDateKey?: string
+  ) => void;
   dismissReminderForToday: (slot: ReminderSlotId, todayDateKey?: string) => void;
   appendChatMessages: (added: ChatMessage[]) => void;
+  replaceLastFallbackMessage: (replacement: ChatMessage) => void;
   clearChatHistory: () => void;
   updateProfile: (preferredName: string, primaryGoal: WellnessGoal) => void;
   updatePreferences: (nextPrefs: UserPreferences) => void;
@@ -87,6 +94,9 @@ export function useWellnessStore(): WellnessStoreHookResult {
   }, [store]);
 
   const [profile, setProfile] = useState<UserProfile | null>(initialHydrated.profile);
+  const profileRef = useRef<UserProfile | null>(initialHydrated.profile);
+  profileRef.current = profile;
+
   const [entriesByDate, setEntriesByDate] = useState<Record<string, DailyEntry>>(
     initialHydrated.entriesByDate
   );
@@ -105,6 +115,8 @@ export function useWellnessStore(): WellnessStoreHookResult {
   const [preferences, setPreferences] = useState<UserPreferences>(
     initialHydrated.preferences
   );
+  const preferencesRef = useRef<UserPreferences>(initialHydrated.preferences);
+  preferencesRef.current = preferences;
 
   const reminderScheduleRef = useRef<ReminderSchedule>(initialHydrated.reminderSchedule);
   reminderScheduleRef.current = reminderSchedule;
@@ -151,16 +163,17 @@ export function useWellnessStore(): WellnessStoreHookResult {
         createdAt: nowIso,
         updatedAt: nowIso,
       };
+      profileRef.current = newProfile;
       store.saveProfile(newProfile);
-      store.savePreferences(preferences);
+      store.savePreferences(preferencesRef.current);
       setProfile(newProfile);
       syncStorageHealth();
     },
-    [preferences, store, syncStorageHealth]
+    [store, syncStorageHealth]
   );
 
   const saveDailyEntry = useCallback(
-    (entry: DailyEntry) => {
+    (entry: DailyEntry, todayDateKey: string = getLocalDateKey()) => {
       const normalized = normalizeDailyEntry(entry);
       const next = { ...entriesRef.current };
       if (hasAnyRecordedMetric(normalized)) {
@@ -175,7 +188,7 @@ export function useWellnessStore(): WellnessStoreHookResult {
       const nextStreak = store.recalculateAndSaveStreak(
         next,
         sessionsRef.current,
-        getLocalDateKey()
+        todayDateKey
       );
       setMindfulStreak(nextStreak);
       syncStorageHealth();
@@ -184,7 +197,7 @@ export function useWellnessStore(): WellnessStoreHookResult {
   );
 
   const recordSessionCompletion = useCallback(
-    (record: CompletedSessionRecord) => {
+    (record: CompletedSessionRecord, todayDateKey: string = getLocalDateKey()) => {
       const prev = sessionsRef.current;
       const next = appendUniqueCompletion(prev, record);
       if (next.length !== prev.length) {
@@ -195,7 +208,7 @@ export function useWellnessStore(): WellnessStoreHookResult {
         const nextStreak = store.recalculateAndSaveStreak(
           entriesRef.current,
           next,
-          getLocalDateKey()
+          todayDateKey
         );
         setMindfulStreak(nextStreak);
       }
@@ -206,12 +219,26 @@ export function useWellnessStore(): WellnessStoreHookResult {
 
   const appendChatMessages = useCallback(
     (added: ChatMessage[]) => {
-      setChatMessages((prev) => {
-        const next = [...prev, ...added].slice(-50);
-        chatMessagesRef.current = next;
-        store.saveChatMessages(next, saveChatHistoryRef.current);
-        return next;
-      });
+      const next = [...chatMessagesRef.current, ...added].slice(-50);
+      chatMessagesRef.current = next;
+      store.saveChatMessages(next, saveChatHistoryRef.current);
+      setChatMessages(next);
+      syncStorageHealth();
+    },
+    [store, syncStorageHealth]
+  );
+
+  const replaceLastFallbackMessage = useCallback(
+    (replacement: ChatMessage) => {
+      const prev = chatMessagesRef.current;
+      const nextBase =
+        prev.length > 0 && prev[prev.length - 1]?.isFallbackFromError
+          ? prev.slice(0, -1)
+          : prev;
+      const next = [...nextBase, replacement].slice(-50);
+      chatMessagesRef.current = next;
+      store.saveChatMessages(next, saveChatHistoryRef.current);
+      setChatMessages(next);
       syncStorageHealth();
     },
     [store, syncStorageHealth]
@@ -226,17 +253,16 @@ export function useWellnessStore(): WellnessStoreHookResult {
 
   const updateProfile = useCallback(
     (preferredName: string, primaryGoal: WellnessGoal) => {
-      setProfile((prev) => {
-        const nowIso = new Date().toISOString();
-        const updated: UserProfile = {
-          preferredName,
-          primaryGoal,
-          createdAt: prev?.createdAt ?? nowIso,
-          updatedAt: nowIso,
-        };
-        store.saveProfile(updated);
-        return updated;
-      });
+      const nowIso = new Date().toISOString();
+      const updated: UserProfile = {
+        preferredName,
+        primaryGoal,
+        createdAt: profileRef.current?.createdAt ?? nowIso,
+        updatedAt: nowIso,
+      };
+      profileRef.current = updated;
+      store.saveProfile(updated);
+      setProfile(updated);
       syncStorageHealth();
     },
     [store, syncStorageHealth]
@@ -244,6 +270,7 @@ export function useWellnessStore(): WellnessStoreHookResult {
 
   const updatePreferences = useCallback(
     (nextPrefs: UserPreferences) => {
+      preferencesRef.current = nextPrefs;
       saveChatHistoryRef.current = nextPrefs.saveChatHistory;
       setPreferences(nextPrefs);
       store.savePreferences(nextPrefs);
@@ -256,25 +283,20 @@ export function useWellnessStore(): WellnessStoreHookResult {
   );
 
   const acknowledgeAiNotice = useCallback(() => {
-    setPreferences((prev) => {
-      if (prev.acknowledgedAiNotice) return prev;
-      const next = { ...prev, acknowledgedAiNotice: true };
-      store.savePreferences(next);
-      return next;
-    });
+    if (preferencesRef.current.acknowledgedAiNotice) return;
+    const next = { ...preferencesRef.current, acknowledgedAiNotice: true };
+    preferencesRef.current = next;
+    store.savePreferences(next);
+    setPreferences(next);
     syncStorageHealth();
   }, [store, syncStorageHealth]);
 
   const updateReminderSchedule = useCallback(
-    (nextSchedule: ReminderSchedule) => {
+    (nextSchedule: ReminderSchedule, todayDateKey: string = getLocalDateKey()) => {
       const sanitized = sanitizeReminderSchedule(nextSchedule);
       reminderScheduleRef.current = sanitized;
       setReminderSchedule(sanitized);
-      store.saveReminders(
-        sanitized,
-        reminderDismissalsRef.current,
-        getLocalDateKey()
-      );
+      store.saveReminders(sanitized, reminderDismissalsRef.current, todayDateKey);
       syncStorageHealth();
     },
     [store, syncStorageHealth]
@@ -300,18 +322,30 @@ export function useWellnessStore(): WellnessStoreHookResult {
 
   const deleteAllLocalData = useCallback(() => {
     store.deleteAllLocalData();
+    profileRef.current = null;
     entriesRef.current = {};
     sessionsRef.current = [];
+    chatMessagesRef.current = [];
+    const defaultPrefs = { ...DEFAULT_PREFERENCES };
+    preferencesRef.current = defaultPrefs;
+    saveChatHistoryRef.current = defaultPrefs.saveChatHistory;
     const defaultSchedule = sanitizeReminderSchedule(DEFAULT_REMINDER_SCHEDULE);
     reminderScheduleRef.current = defaultSchedule;
     reminderDismissalsRef.current = {};
+    if (typeof window !== 'undefined' && window.location.search) {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('autostart')) {
+        url.searchParams.delete('autostart');
+        window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+      }
+    }
     setProfile(null);
     setEntriesByDate({});
     setCompletedSessions([]);
     setMindfulStreak(computeMindfulStreak({}, [], getLocalDateKey()));
     setReminderSchedule(defaultSchedule);
     setReminderDismissals({});
-    setPreferences({ ...DEFAULT_PREFERENCES });
+    setPreferences(defaultPrefs);
     setChatMessages([]);
     syncStorageHealth();
   }, [store, syncStorageHealth]);
@@ -340,6 +374,7 @@ export function useWellnessStore(): WellnessStoreHookResult {
     updateReminderSchedule,
     dismissReminderForToday,
     appendChatMessages,
+    replaceLastFallbackMessage,
     clearChatHistory,
     updateProfile,
     updatePreferences,

@@ -6,8 +6,10 @@ import type {
 } from '../types/wellness';
 import { buildCuratedDemoResponse } from '../data/demoCoachResponses';
 import {
+  detectUrgentSafetyConcern,
   MAX_COACH_HISTORY_TURNS,
   MAX_COACH_MESSAGE_LENGTH,
+  URGENT_SAFETY_RESPONSE,
 } from '../shared/coachSafety';
 import {
   fetchCoachStatus,
@@ -22,6 +24,7 @@ interface UseCoachChatOptions {
   draftPrompt: string | null;
   onClearDraftPrompt: () => void;
   onAppendMessages: (newMessages: ChatMessage[]) => void;
+  onReplaceLastFallbackMessage: (replacement: ChatMessage) => void;
   onClearChatHistory: () => void;
   onAcknowledgeAiNotice: () => void;
 }
@@ -34,6 +37,7 @@ export function useCoachChat({
   draftPrompt,
   onClearDraftPrompt,
   onAppendMessages,
+  onReplaceLastFallbackMessage,
   onClearChatHistory,
   onAcknowledgeAiNotice,
 }: UseCoachChatOptions) {
@@ -114,6 +118,24 @@ export function useCoachChat({
         setInputValue('');
       }
 
+      if (detectUrgentSafetyConcern(trimmed)) {
+        const crisisMsg: ChatMessage = {
+          id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          role: 'assistant',
+          content: URGENT_SAFETY_RESPONSE,
+          createdAt: new Date().toISOString(),
+          mode: 'demo',
+          isCrisisNotice: true,
+        };
+        if (appendUserBubble) {
+          onAppendMessages([crisisMsg]);
+        } else {
+          onReplaceLastFallbackMessage(crisisMsg);
+        }
+        setFailedTurnText(null);
+        return;
+      }
+
       if (effectiveMode === 'demo') {
         await new Promise<void>((resolve) => {
           const timer = window.setTimeout(() => {
@@ -140,13 +162,19 @@ export function useCoachChat({
           mode: 'demo',
           isCrisisNotice: demo.isCrisisNotice,
         };
-        onAppendMessages([assistantMsg]);
+        if (appendUserBubble) {
+          onAppendMessages([assistantMsg]);
+        } else {
+          onReplaceLastFallbackMessage(assistantMsg);
+        }
         setFailedTurnText(null);
         return;
       }
 
-      if (serverLiveAiAvailable === true && !preferences.acknowledgedAiNotice) {
+      let didAcknowledgeThisTurn = preferences.acknowledgedAiNotice;
+      if (serverLiveAiAvailable === true && !didAcknowledgeThisTurn) {
         onAcknowledgeAiNotice();
+        didAcknowledgeThisTurn = true;
       }
 
       let historySource = messages;
@@ -213,7 +241,7 @@ export function useCoachChat({
       }
 
       setServerLiveAiAvailable(true);
-      if (!preferences.acknowledgedAiNotice) {
+      if (!didAcknowledgeThisTurn) {
         onAcknowledgeAiNotice();
       }
       const assistantMsg: ChatMessage = {
@@ -224,7 +252,11 @@ export function useCoachChat({
         mode: result.data.mode,
         isCrisisNotice: result.data.isCrisisNotice,
       };
-      onAppendMessages([assistantMsg]);
+      if (appendUserBubble) {
+        onAppendMessages([assistantMsg]);
+      } else {
+        onReplaceLastFallbackMessage(assistantMsg);
+      }
       setFailedTurnText(null);
     } catch (err: unknown) {
       if (
@@ -278,22 +310,35 @@ export function useCoachChat({
     void sendTurn(failedTurnText, false);
   };
 
+  const cancelInFlightTurn = () => {
+    generationRef.current += 1;
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    submittingLockRef.current = false;
+    setIsSending(false);
+  };
+
   const switchToDemoCoach = () => {
+    cancelInFlightTurn();
     setPreferDemoMode(true);
     setErrorMessage(null);
     setFailedTurnText(null);
   };
 
   const toggleDemoPreference = () => {
-    setPreferDemoMode((prev) => !prev);
+    cancelInFlightTurn();
+    setPreferDemoMode((prev) => {
+      const next = !prev;
+      if (next) {
+        setErrorMessage(null);
+        setFailedTurnText(null);
+      }
+      return next;
+    });
   };
 
   const clearChat = () => {
-    generationRef.current += 1;
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = null;
-    submittingLockRef.current = false;
-    setIsSending(false);
+    cancelInFlightTurn();
     onClearChatHistory();
     setFailedTurnText(null);
     setErrorMessage(null);

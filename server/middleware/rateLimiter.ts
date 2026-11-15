@@ -12,9 +12,9 @@ export class SlidingWindowRateLimiter {
     maxRequests?: number;
     maxTrackedKeys?: number;
   }) {
-    this.windowMs = options?.windowMs ?? 60_000;
-    this.maxRequests = options?.maxRequests ?? 15;
-    this.maxTrackedKeys = options?.maxTrackedKeys ?? 500;
+    this.windowMs = Math.max(1, options?.windowMs ?? 60_000);
+    this.maxRequests = Math.max(1, options?.maxRequests ?? 15);
+    this.maxTrackedKeys = Math.max(1, options?.maxTrackedKeys ?? 500);
   }
 
   public allow(key: string, nowMs: number = Date.now()): boolean {
@@ -38,12 +38,16 @@ export class SlidingWindowRateLimiter {
     const timestamps = (this.requestTimestamps.get(key) ?? []).filter(
       (t) => nowMs - t < this.windowMs
     );
+    const touchKey = (list: number[]) => {
+      this.requestTimestamps.delete(key);
+      this.requestTimestamps.set(key, list);
+    };
     if (timestamps.length >= this.maxRequests) {
-      this.requestTimestamps.set(key, timestamps);
+      touchKey(timestamps);
       return false;
     }
     timestamps.push(nowMs);
-    this.requestTimestamps.set(key, timestamps);
+    touchKey(timestamps);
     return true;
   }
 }

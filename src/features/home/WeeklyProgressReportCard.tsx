@@ -139,16 +139,12 @@ export function WeeklyProgressReportCard({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const periodRangeLabel = `${formatReadableDate(livePreviewReport.periodStart)} – ${formatReadableDate(livePreviewReport.periodEnd)}`;
-  const activeInsights = generatedReport
-    ? generatedReport.scoreInsights
-    : livePreviewReport.scoreInsights;
-  const activeSnippet = generatedReport
-    ? generatedReport.shareableSnippet
-    : livePreviewReport.shareableSnippet;
+  const activeInsights = livePreviewReport.scoreInsights;
+  const activeSnippet = livePreviewReport.shareableSnippet;
   const canUseWebShare =
     typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
@@ -156,15 +152,9 @@ export function WeeklyProgressReportCard({
     setSnippetStatus('idle');
   }, [activeSnippet]);
 
-  const handleToggleSnippetExport = async () => {
-    if (showSnippetExport) {
-      setShowSnippetExport(false);
-      setSnippetStatus('idle');
-      return;
-    }
-    setShowSnippetExport(true);
-    const ok = await copyTextToClipboard(activeSnippet);
-    setSnippetStatus(ok ? 'copied' : 'idle');
+  const handleToggleSnippetExport = () => {
+    setShowSnippetExport((prev) => !prev);
+    setSnippetStatus('idle');
   };
 
   const handleCopySnippet = async () => {

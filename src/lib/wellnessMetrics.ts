@@ -97,6 +97,9 @@ export function computeMindfulStreak(
   todayDateKey: string,
   nowIso: string = new Date().toISOString()
 ): MindfulStreakState {
+  const safeTodayDateKey = isValidDateKey(todayDateKey)
+    ? todayDateKey
+    : getLocalDateKey();
   const activeDates = new Set<string>();
   let todayHasEntry = false;
   let todayHasSession = false;
@@ -105,10 +108,10 @@ export function computeMindfulStreak(
     if (!isValidDateKey(dateKey) || !hasAnyRecordedMetric(entry)) {
       continue;
     }
-    if (dateKey <= todayDateKey) {
+    if (dateKey <= safeTodayDateKey) {
       activeDates.add(dateKey);
     }
-    if (dateKey === todayDateKey) {
+    if (dateKey === safeTodayDateKey) {
       todayHasEntry = true;
     }
   }
@@ -117,10 +120,10 @@ export function computeMindfulStreak(
     if (!isValidDateKey(session.date)) {
       continue;
     }
-    if (session.date <= todayDateKey) {
+    if (session.date <= safeTodayDateKey) {
       activeDates.add(session.date);
     }
-    if (session.date === todayDateKey) {
+    if (session.date === safeTodayDateKey) {
       todayHasSession = true;
     }
   }
@@ -147,13 +150,11 @@ export function computeMindfulStreak(
     }
   }
 
-  const yesterdayDateKey = isValidDateKey(todayDateKey)
-    ? shiftLocalDateKey(todayDateKey, -1)
-    : '';
+  const yesterdayDateKey = shiftLocalDateKey(safeTodayDateKey, -1);
   let currentStreak = 0;
   let cursor = activeToday
-    ? todayDateKey
-    : yesterdayDateKey && activeDates.has(yesterdayDateKey)
+    ? safeTodayDateKey
+    : activeDates.has(yesterdayDateKey)
       ? yesterdayDateKey
       : '';
 
@@ -347,25 +348,30 @@ export function computeWellnessStatistics(
   completedSessions: CompletedSessionRecord[],
   todayDateKey: string
 ): WellnessStatistics {
-  const daysWithCheckIn = Object.values(entriesByDate).filter((entry) =>
-    hasAnyRecordedMetric(entry)
+  const safeTodayDateKey = isValidDateKey(todayDateKey)
+    ? todayDateKey
+    : getLocalDateKey();
+  const daysWithCheckIn = Object.entries(entriesByDate).filter(
+    ([dateKey, entry]) => isValidDateKey(dateKey) && hasAnyRecordedMetric(entry)
   ).length;
   const mindfulStreak = computeMindfulStreak(
     entriesByDate,
     completedSessions,
-    todayDateKey
+    safeTodayDateKey
   );
 
+  let validTotalCompletedSessions = 0;
   const sessionCountsByDate = new Map<string, number>();
   for (const session of completedSessions) {
     if (!isValidDateKey(session.date)) continue;
+    validTotalCompletedSessions += 1;
     sessionCountsByDate.set(
       session.date,
       (sessionCountsByDate.get(session.date) ?? 0) + 1
     );
   }
 
-  const past7Keys = getPastLocalDateKeys(7, todayDateKey);
+  const past7Keys = getPastLocalDateKeys(7, safeTodayDateKey);
   const sevenDayWindow: DaySummaryItem[] = past7Keys.map((date) => {
     const entry = entriesByDate[date];
     const energyRating = entry ? entry.energyRating : null;
@@ -438,7 +444,7 @@ export function computeWellnessStatistics(
   );
 
   return {
-    totalCompletedSessions: completedSessions.length,
+    totalCompletedSessions: validTotalCompletedSessions,
     daysWithCheckIn,
     mindfulStreak,
     weeklyWellnessScore,
@@ -482,15 +488,33 @@ function getGoalNextStepSuggestion(
       if (statistics.completedSessionsInLast7 === 0) {
         return 'Try one 3-to-5 minute Gentle breathing or Mindfulness session between daytime tasks next week.';
       }
+      if (
+        statistics.averageEnergy7d.averageScore !== null &&
+        statistics.averageEnergy7d.averageScore < 60
+      ) {
+        return 'With energy averaging below 60/100 this week, weave in one unhurried 3-minute breathing pause before busy afternoons.';
+      }
       return 'Continue pairing short breathing pauses with daily check-ins to catch tension early.';
     case 'energy':
       if (statistics.averageEnergy7d.includedCount === 0) {
         return 'Record a quick 1–10 energy rating on a few days next week to see which sleep or movement habits lift your focus.';
       }
+      if (
+        statistics.averageEnergy7d.averageScore !== null &&
+        statistics.averageEnergy7d.averageScore < 60
+      ) {
+        return 'Your 7-day energy averaged under 60/100—try pairing morning hydration with a brief daylight pause before afternoon fatigue sets in.';
+      }
       return 'Notice which days yielded your steadier energy scores and repeat one simple pacing or daylight habit from them.';
     case 'weight':
       if (statistics.averageSteps7d.includedCount === 0) {
         return 'Add optional step counts on walking days to observe comfortable movement patterns without rigid targets.';
+      }
+      if (
+        statistics.averageSteps7d.averageSteps !== null &&
+        statistics.averageSteps7d.averageSteps < 5000
+      ) {
+        return 'Your recorded movement averaged under 5,000 steps—adding one relaxed 10-minute walk after a meal is an easy way to build momentum.';
       }
       return 'Build on enjoyable, unhurried movement and regular meal-and-rest check-ins rather than strict daily numbers.';
   }
@@ -876,8 +900,12 @@ export function buildWeeklyProgressReport(params: {
       statistics.weeklyWellnessScore.score !== null
         ? `Weekly Score: ${statistics.weeklyWellnessScore.score}/100 (${statistics.weeklyWellnessScore.tierLabel})`
         : 'Weekly activity logged';
+    const streakPart =
+      statistics.mindfulStreak.currentStreak > 0
+        ? ` · ${statistics.mindfulStreak.currentStreak}-day streak`
+        : '';
     snippetLines.push(
-      `${scorePart} · ${statistics.activeDaysInLast7}/7 active days · ${statistics.mindfulStreak.currentStreak}-day streak`
+      `${scorePart} · ${statistics.activeDaysInLast7}/7 active days${streakPart}`
     );
     if (snippetAverages.length > 0) {
       snippetLines.push(`Averages: ${snippetAverages.join(' · ')}`);

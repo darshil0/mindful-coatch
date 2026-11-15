@@ -1,9 +1,8 @@
 export const SERVER_PORT = 3000;
 
 export const BASE_CANDIDATE_MODELS = [
+  'gemini-4-hydrogen',
   'gemini-3.1-flash-lite',
-  'gemini-3.8-flash',
-  'gemini-flash-latest',
 ] as const;
 
 export type CandidateModelName = (typeof BASE_CANDIDATE_MODELS)[number];

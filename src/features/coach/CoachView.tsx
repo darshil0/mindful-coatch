@@ -19,6 +19,7 @@ interface CoachViewProps {
   draftPrompt: string | null;
   onClearDraftPrompt: () => void;
   onAppendMessages: (newMessages: ChatMessage[]) => void;
+  onReplaceLastFallbackMessage: (replacement: ChatMessage) => void;
   onClearChatHistory: () => void;
   onAcknowledgeAiNotice: () => void;
   onNavigate: (destination: NavDestination) => void;
@@ -32,6 +33,7 @@ export function CoachView({
   draftPrompt,
   onClearDraftPrompt,
   onAppendMessages,
+  onReplaceLastFallbackMessage,
   onClearChatHistory,
   onAcknowledgeAiNotice,
   onNavigate,
@@ -47,6 +49,7 @@ export function CoachView({
     draftPrompt,
     onClearDraftPrompt,
     onAppendMessages,
+    onReplaceLastFallbackMessage,
     onClearChatHistory,
     onAcknowledgeAiNotice,
   });

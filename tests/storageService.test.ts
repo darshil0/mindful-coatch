@@ -259,3 +259,46 @@ test('storage persists reflectiveNote entries, supports note-only check-ins, and
   assert.equal(store.loadEntries()['2026-11-11'], undefined);
 });
 
+test('storage caches hydrated keys before mid-session quota errors and expires stale streaks on direct load', () => {
+  const mock = new MockStorage();
+  mock.setItem(
+    STORAGE_KEYS.PROFILE,
+    JSON.stringify({
+      preferredName: 'Sam',
+      primaryGoal: 'stress',
+      createdAt: '2026-11-10T09:00:00.000Z',
+      updatedAt: '2026-11-10T09:00:00.000Z',
+    })
+  );
+  mock.setItem(
+    STORAGE_KEYS.STREAK,
+    JSON.stringify({
+      currentStreak: 4,
+      longestStreak: 4,
+      activeToday: false,
+      todayHasEntry: false,
+      todayHasSession: false,
+      totalActiveDays: 4,
+      lastActiveDate: '2026-11-05',
+      updatedAt: '2026-11-05T20:00:00.000Z',
+    })
+  );
+
+  const store = new WellnessStorageStore(mock);
+  // Direct loadMindfulStreak expires stale streak from 9 days ago
+  assert.equal(store.loadMindfulStreak('2026-11-14').currentStreak, 0);
+
+  // Hydrate caches profile into memoryFallback
+  store.hydrate('2026-11-14');
+  // Trigger mid-session write failure
+  mock.failWrites = true;
+  store.savePreferences({
+    saveChatHistory: false,
+    reduceMotion: 'on',
+    acknowledgedAiNotice: false,
+  });
+  assert.equal(store.isPersistentAvailable(), false);
+  // Previously hydrated profile remains readable via memoryFallback
+  assert.equal(store.loadProfile()?.preferredName, 'Sam');
+});
+

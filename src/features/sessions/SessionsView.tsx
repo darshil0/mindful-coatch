@@ -5,34 +5,24 @@ import type {
 } from '../../types/wellness';
 import { getGoalMetadata } from '../../data/goals';
 import { GUIDED_SESSIONS } from '../../data/guidedSessions';
-import { useSessionPlayer } from '../../hooks/useSessionPlayer';
+import type { SessionPlayerHookResult } from '../../hooks/useSessionPlayer';
 import { ActiveSessionPlayer } from './ActiveSessionPlayer';
 import { SessionCatalogCard } from './SessionCatalogCard';
 
 interface SessionsViewProps {
   primaryGoal: WellnessGoal;
-  initialSessionId: string | null;
   effectiveReducedMotion: boolean;
   completedSessions: CompletedSessionRecord[];
-  onRecordSessionCompletion: (record: CompletedSessionRecord) => void;
-  onClearInitialSession: () => void;
+  player: SessionPlayerHookResult;
 }
 
 export function SessionsView({
   primaryGoal,
-  initialSessionId,
   effectiveReducedMotion,
   completedSessions,
-  onRecordSessionCompletion,
-  onClearInitialSession,
+  player,
 }: SessionsViewProps) {
   const goalMeta = getGoalMetadata(primaryGoal);
-
-  const player = useSessionPlayer({
-    initialSessionId,
-    onClearInitialSession,
-    onRecordSessionCompletion,
-  });
 
   // Sort sessions so primary-goal matches appear first while keeping a predictable order
   const orderedSessions = [...GUIDED_SESSIONS].sort((a, b) => {

@@ -77,9 +77,9 @@ export function normalizeConversationContents(
   rawHistory: unknown,
   currentUserMessage: string
 ): GeminiContentTurn[] {
-  const cleanHistory: CoachHistoryItem[] = [];
+  const validHistory: CoachHistoryItem[] = [];
   if (Array.isArray(rawHistory)) {
-    for (const item of rawHistory.slice(-MAX_COACH_HISTORY_TURNS)) {
+    for (const item of rawHistory) {
       if (!item || typeof item !== 'object') continue;
       const rec = item as Record<string, unknown>;
       if (
@@ -87,13 +87,15 @@ export function normalizeConversationContents(
         typeof rec.content === 'string' &&
         rec.content.trim().length > 0
       ) {
-        cleanHistory.push({
+        validHistory.push({
           role: rec.role,
           content: rec.content.trim().slice(0, MAX_COACH_HISTORY_TURN_CHARS),
         });
       }
     }
   }
+  const cleanHistory = validHistory.slice(-MAX_COACH_HISTORY_TURNS);
+  const trimmedCurrent = currentUserMessage.trim().slice(0, MAX_COACH_HISTORY_TURN_CHARS);
 
   const rawTurns: { role: 'user' | 'model'; text: string }[] = [
     ...cleanHistory.map((turn) => ({
@@ -102,7 +104,7 @@ export function normalizeConversationContents(
     })),
     {
       role: 'user',
-      text: currentUserMessage,
+      text: trimmedCurrent,
     },
   ];
 
@@ -124,7 +126,10 @@ export function normalizeConversationContents(
   }
 
   if (contents.length === 0) {
-    contents.push({ role: 'user', parts: [{ text: currentUserMessage }] });
+    contents.push({
+      role: 'user',
+      parts: [{ text: trimmedCurrent || currentUserMessage.trim() }],
+    });
   }
   return contents;
 }
@@ -167,25 +172,35 @@ export async function generateLiveCoachReply(params: {
 
   try {
     const candidateModels = getOrderedCandidateModels();
+    const overallDeadlineMs = Date.now() + 20_000;
     let replyText = '';
     let lastError: unknown = null;
 
     for (let attempt = 0; attempt < candidateModels.length; attempt += 1) {
+      const remainingBudgetMs = overallDeadlineMs - Date.now();
+      if (remainingBudgetMs <= 1_500) {
+        if (!lastError) {
+          lastError = new Error('COACH_REQUEST_TIMEOUT');
+        }
+        break;
+      }
+
       const modelName = candidateModels[attempt];
+      const attemptTimeoutMs = Math.min(9_500, remainingBudgetMs - 500);
       try {
         const response = await withTimeout(
           ai.models.generateContent({
             model: modelName,
             contents,
             config: {
-              abortSignal: AbortSignal.timeout(12_000),
+              abortSignal: AbortSignal.timeout(attemptTimeoutMs),
               systemInstruction: buildSystemInstruction(params.goal),
-              ...(modelName === 'gemini-3.8-flash'
+              ...(modelName === 'gemini-4-hydrogen'
                 ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } }
                 : {}),
             },
           }),
-          12_500
+          attemptTimeoutMs + 500
         );
         lastError = null;
         replyText = (response.text ?? '').trim();
@@ -194,19 +209,24 @@ export async function generateLiveCoachReply(params: {
           break;
         }
         if (attempt < candidateModels.length - 1) {
-          await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+          await new Promise((r) => setTimeout(r, 350));
         }
       } catch (attemptErr: unknown) {
         lastError = attemptErr;
+        if (lastWorkingModel === modelName) {
+          lastWorkingModel = null;
+        }
         const msg =
           attemptErr instanceof Error ? attemptErr.message : String(attemptErr);
         const isAuthFailure =
-          /API_KEY_INVALID|PERMISSION_DENIED|unregistered callers|401|403/i.test(msg);
+          /API_KEY_INVALID|PERMISSION_DENIED|unregistered callers|\b401\b|\b403\b/i.test(
+            msg
+          );
         if (isAuthFailure) {
           break;
         }
-        if (attempt < candidateModels.length - 1) {
-          await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+        if (attempt < candidateModels.length - 1 && overallDeadlineMs - Date.now() > 2_000) {
+          await new Promise((r) => setTimeout(r, 350));
           continue;
         }
       }
@@ -243,7 +263,7 @@ export async function generateLiveCoachReply(params: {
           'The AI coach took too long to respond. Please try again or use Demo Coach.',
       };
     }
-    if (/503|UNAVAILABLE|high demand/i.test(errMessage)) {
+    if (/\b503\b|UNAVAILABLE|high demand/i.test(errMessage)) {
       return {
         ok: false,
         status: 503,
@@ -252,7 +272,11 @@ export async function generateLiveCoachReply(params: {
           'The live AI service is temporarily experiencing high demand. Retry in a moment or switch to Demo Coach for curated guidance.',
       };
     }
-    if (/API_KEY_INVALID|PERMISSION_DENIED|unregistered callers|401|403/i.test(errMessage)) {
+    if (
+      /API_KEY_INVALID|PERMISSION_DENIED|unregistered callers|\b401\b|\b403\b/i.test(
+        errMessage
+      )
+    ) {
       return {
         ok: false,
         status: 502,
@@ -261,7 +285,7 @@ export async function generateLiveCoachReply(params: {
           'Live AI authentication is currently unavailable. Please try again later or switch to Demo Coach.',
       };
     }
-    if (/RESOURCE_EXHAUSTED|429/i.test(errMessage)) {
+    if (/RESOURCE_EXHAUSTED|\b429\b/i.test(errMessage)) {
       return {
         ok: false,
         status: 429,

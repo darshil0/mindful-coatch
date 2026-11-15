@@ -53,10 +53,11 @@ export function WeeklyWellnessScoreCard({
         >
           <strong>Weekly wellness score</strong> combines only the metrics you
           actually recorded over the past 7 local days: Energy (35% weight), Sleep
-          relative to 7–9h (25%), 7-day Check-in &amp; session consistency (25%), and
-          Movement up to 8,000 steps (15%). Categories with no entries yet are omitted
-          rather than counted as zero, and this is a personal reflection guide rather
-          than a clinical metric.
+          relative to 7–9h per night (25%), 7-day Check-in &amp; session consistency
+          (25%), and Movement toward 8,000 steps per day (15%). Sleep and movement
+          average each recorded day’s score so high day-to-day swings stay visible,
+          unrecorded categories are omitted rather than counted as zero, and this is a
+          personal reflection guide rather than a clinical metric.
         </div>
       )}
 

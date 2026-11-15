@@ -3,6 +3,7 @@ import type {
   ReminderSchedule,
   ReminderSlotId,
 } from '../types/wellness.ts';
+import { isValidDateKey } from './dateUtils.ts';
 
 export const DEFAULT_REMINDER_SCHEDULE: ReminderSchedule = {
   morning: {
@@ -78,24 +79,43 @@ export function sanitizeReminderSchedule(raw: unknown): ReminderSchedule {
       ? (rec.evening as Record<string, unknown>)
       : {};
 
+  const morningEnabled =
+    typeof morningRaw.enabled === 'boolean'
+      ? morningRaw.enabled
+      : DEFAULT_REMINDER_SCHEDULE.morning.enabled;
+  let morningTime = isValidTimeString(morningRaw.time)
+    ? morningRaw.time
+    : DEFAULT_REMINDER_SCHEDULE.morning.time;
+
+  const eveningEnabled =
+    typeof eveningRaw.enabled === 'boolean'
+      ? eveningRaw.enabled
+      : DEFAULT_REMINDER_SCHEDULE.evening.enabled;
+  let eveningTime = isValidTimeString(eveningRaw.time)
+    ? eveningRaw.time
+    : DEFAULT_REMINDER_SCHEDULE.evening.time;
+
+  const mMins = parseTimeToMinutes(morningTime);
+  const eMins = parseTimeToMinutes(eveningTime);
+  if (
+    morningEnabled &&
+    eveningEnabled &&
+    mMins !== null &&
+    eMins !== null &&
+    mMins >= eMins
+  ) {
+    morningTime = DEFAULT_REMINDER_SCHEDULE.morning.time;
+    eveningTime = DEFAULT_REMINDER_SCHEDULE.evening.time;
+  }
+
   return {
     morning: {
-      enabled:
-        typeof morningRaw.enabled === 'boolean'
-          ? morningRaw.enabled
-          : DEFAULT_REMINDER_SCHEDULE.morning.enabled,
-      time: isValidTimeString(morningRaw.time)
-        ? morningRaw.time
-        : DEFAULT_REMINDER_SCHEDULE.morning.time,
+      enabled: morningEnabled,
+      time: morningTime,
     },
     evening: {
-      enabled:
-        typeof eveningRaw.enabled === 'boolean'
-          ? eveningRaw.enabled
-          : DEFAULT_REMINDER_SCHEDULE.evening.enabled,
-      time: isValidTimeString(eveningRaw.time)
-        ? eveningRaw.time
-        : DEFAULT_REMINDER_SCHEDULE.evening.time,
+      enabled: eveningEnabled,
+      time: eveningTime,
     },
     browserNotifications: rec.browserNotifications === true,
   };
@@ -105,6 +125,7 @@ export function pruneDismissalsToDate(
   dismissals: ReminderDismissalsByDate,
   todayDateKey: string
 ): ReminderDismissalsByDate {
+  if (!isValidDateKey(todayDateKey)) return {};
   const current = dismissals[todayDateKey];
   if (!current) return {};
   const cleaned: Partial<Record<ReminderSlotId, boolean>> = {};
@@ -160,57 +181,62 @@ export function evaluateReminderState(params: {
     };
   }
 
-  // Pick the latest scheduled slot that has already arrived today
+  // Evaluate started slots in reverse chronological order so an active evening reminder
+  // still falls back to an uncompleted, undismissed morning check-in if evening is done or dismissed.
   const startedSlots = enabledSlots.filter((slot) => slot.minutes <= nowMinutes);
-  const activeSlot =
-    startedSlots.length > 0 ? startedSlots[startedSlots.length - 1] : null;
   const nextUpcomingSlot =
     enabledSlots.find((slot) => slot.minutes > nowMinutes) ?? null;
 
-  if (activeSlot?.id === 'morning' && !todayHasEntry && !dismissedToday.morning) {
-    const scheduledLabel = formatTimeLabel(activeSlot.time);
-    return {
-      dueReminder: {
-        slot: 'morning',
-        title: 'Morning check-in',
-        message:
-          'Take a quiet moment to note how your energy feels today and record last night’s sleep.',
-        scheduledTime: activeSlot.time,
-        scheduledLabel,
-        primaryActionLabel: 'Check in now',
-      },
-      statusSummary: `Morning check-in reminder active (scheduled ${scheduledLabel}).`,
-    };
-  }
+  for (let i = startedSlots.length - 1; i >= 0; i -= 1) {
+    const slot = startedSlots[i];
+    if (slot.id === 'evening' && !todayHasSession && !dismissedToday.evening) {
+      const scheduledLabel = formatTimeLabel(slot.time);
+      return {
+        dueReminder: {
+          slot: 'evening',
+          title: 'Evening reflection',
+          message:
+            'Set aside a few calm minutes for a wind-down session or reflect on how your day felt with Coach.',
+          scheduledTime: slot.time,
+          scheduledLabel,
+          primaryActionLabel: 'Open wind-down session',
+          secondaryActionLabel: 'Reflect with Coach',
+        },
+        statusSummary: `Evening reflection reminder active (scheduled ${scheduledLabel}).`,
+      };
+    }
 
-  if (activeSlot?.id === 'evening' && !todayHasSession && !dismissedToday.evening) {
-    const scheduledLabel = formatTimeLabel(activeSlot.time);
-    return {
-      dueReminder: {
-        slot: 'evening',
-        title: 'Evening reflection',
-        message:
-          'Set aside a few calm minutes for a wind-down session or reflect on how your day felt with Coach.',
-        scheduledTime: activeSlot.time,
-        scheduledLabel,
-        primaryActionLabel: 'Open wind-down session',
-        secondaryActionLabel: 'Reflect with Coach',
-      },
-      statusSummary: `Evening reflection reminder active (scheduled ${scheduledLabel}).`,
-    };
+    if (slot.id === 'morning' && !todayHasEntry && !dismissedToday.morning) {
+      const scheduledLabel = formatTimeLabel(slot.time);
+      return {
+        dueReminder: {
+          slot: 'morning',
+          title: 'Morning check-in',
+          message:
+            'Take a quiet moment to note how your energy feels today and record last night’s sleep.',
+          scheduledTime: slot.time,
+          scheduledLabel,
+          primaryActionLabel: 'Check in now',
+        },
+        statusSummary: `Morning check-in reminder active (scheduled ${scheduledLabel}).`,
+      };
+    }
   }
 
   // No active reminder due right now — build a concise, helpful status line
+  const morningStarted = startedSlots.some((slot) => slot.id === 'morning');
+  const eveningStarted = startedSlots.some((slot) => slot.id === 'evening');
+
   const parts: string[] = [];
   if (todayHasEntry) {
     parts.push('Today’s check-in logged');
-  } else if (activeSlot?.id === 'morning' && dismissedToday.morning) {
+  } else if (morningStarted && dismissedToday.morning) {
     parts.push('Morning reminder dismissed for today');
   }
 
   if (todayHasSession) {
     parts.push('Guided session completed');
-  } else if (activeSlot?.id === 'evening' && dismissedToday.evening) {
+  } else if (eveningStarted && dismissedToday.evening) {
     parts.push('Evening reminder dismissed for today');
   }
 
