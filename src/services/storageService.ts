@@ -11,10 +11,7 @@ import {
   type UserProfile,
 } from '../types/wellness';
 import { getLocalDateKey, isValidDateKey, shiftLocalDateKey } from '../lib/dateUtils';
-import {
-  computeMindfulStreak,
-  hasAnyRecordedMetric,
-} from '../lib/wellnessMetrics';
+import { computeMindfulStreak, hasAnyRecordedMetric } from '../lib/wellnessMetrics';
 import {
   DEFAULT_REMINDER_SCHEDULE,
   pruneDismissalsToDate,
@@ -343,7 +340,8 @@ export class WellnessStorageStore {
         this.recordCorruptBackup(STORAGE_KEYS.PROFILE, raw);
         return null;
       }
-      const nameRaw = typeof parsed.preferredName === 'string' ? parsed.preferredName : '';
+      const nameRaw =
+        typeof parsed.preferredName === 'string' ? parsed.preferredName : '';
       const nameCheck = validatePreferredName(nameRaw);
       if (!nameCheck.valid || !isValidWellnessGoal(parsed.primaryGoal)) {
         return null;
@@ -389,9 +387,7 @@ export class WellnessStorageStore {
           reflectiveNote:
             typeof rec.reflectiveNote === 'string' ? rec.reflectiveNote : null,
           updatedAt:
-            typeof rec.updatedAt === 'string'
-              ? rec.updatedAt
-              : new Date().toISOString(),
+            typeof rec.updatedAt === 'string' ? rec.updatedAt : new Date().toISOString(),
         });
 
         if (!hasAnyRecordedMetric(normalized)) {
@@ -483,9 +479,7 @@ export class WellnessStorageStore {
     this.bumpMeta();
   }
 
-  public loadMindfulStreak(
-    todayDateKey: string = getLocalDateKey()
-  ): MindfulStreakState {
+  public loadMindfulStreak(todayDateKey: string = getLocalDateKey()): MindfulStreakState {
     const safeTodayDateKey = isValidDateKey(todayDateKey)
       ? todayDateKey
       : getLocalDateKey();
@@ -678,9 +672,7 @@ export class WellnessStorageStore {
           role: rec.role,
           content: rec.content.slice(0, 4000),
           createdAt:
-            typeof rec.createdAt === 'string'
-              ? rec.createdAt
-              : new Date().toISOString(),
+            typeof rec.createdAt === 'string' ? rec.createdAt : new Date().toISOString(),
           mode: rec.mode === 'live' ? 'live' : 'demo',
           isCrisisNotice: rec.isCrisisNotice === true,
           isFallbackFromError: rec.isFallbackFromError === true,

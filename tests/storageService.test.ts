@@ -93,7 +93,10 @@ test('storage persists profile & daily entries by date, recovers from malformed 
   });
   store.saveChatMessages(sampleChat, true);
   assert.notEqual(mock.getItem(STORAGE_KEYS.CHAT), null);
-  assert.equal(new WellnessStorageStore(mock).loadPreferences().acknowledgedAiNotice, true);
+  assert.equal(
+    new WellnessStorageStore(mock).loadPreferences().acknowledgedAiNotice,
+    true
+  );
 
   store.savePreferences({
     saveChatHistory: false,

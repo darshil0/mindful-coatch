@@ -18,10 +18,7 @@ import type {
 } from '../../types/wellness';
 import { getGoalMetadata } from '../../data/goals';
 import { formatReadableDate } from '../../lib/dateUtils';
-import {
-  buildWeeklyProgressReport,
-  formatSleepMinutes,
-} from '../../lib/wellnessMetrics';
+import { buildWeeklyProgressReport, formatSleepMinutes } from '../../lib/wellnessMetrics';
 
 interface WeeklyProgressReportCardProps {
   profile: UserProfile;
@@ -374,7 +371,10 @@ export function WeeklyProgressReportCard({
               role="status"
               className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#FAF9F6] px-4 py-3 text-xs text-[#4A5550]"
             >
-              <span>New activity or profile changes were recorded after this report was generated.</span>
+              <span>
+                New activity or profile changes were recorded after this report was
+                generated.
+              </span>
               <button
                 type="button"
                 onClick={handleGenerateReport}
@@ -458,9 +458,7 @@ export function WeeklyProgressReportCard({
           {/* Recorded Highlights */}
           {generatedReport.highlights.length > 0 && (
             <div className="border-t border-[#ECEAE3] pt-4">
-              <h4 className="text-xs font-medium text-[#5C6762]">
-                Recorded highlights
-              </h4>
+              <h4 className="text-xs font-medium text-[#5C6762]">Recorded highlights</h4>
               <ul className="mt-2 divide-y divide-[#ECEAE3]">
                 {generatedReport.highlights.map((item) => (
                   <li
@@ -471,9 +469,7 @@ export function WeeklyProgressReportCard({
                       <span className="text-sm font-medium text-[#1E2421]">
                         {item.label}
                       </span>
-                      <span className="ml-2 text-xs text-[#5C6762]">
-                        {item.detail}
-                      </span>
+                      <span className="ml-2 text-xs text-[#5C6762]">{item.detail}</span>
                     </div>
                     <span className="font-mono text-sm font-medium text-[#1E2421] tabular-nums whitespace-nowrap">
                       {item.value}
@@ -486,9 +482,7 @@ export function WeeklyProgressReportCard({
 
           {/* Next Week Focus */}
           <div className="border-t border-[#ECEAE3] pt-4">
-            <h4 className="text-xs font-medium text-[#5C6762]">
-              Next week focus
-            </h4>
+            <h4 className="text-xs font-medium text-[#5C6762]">Next week focus</h4>
             <ul className="mt-2 space-y-2 text-sm leading-relaxed text-[#4A5550]">
               {generatedReport.nextWeekFocus.map((tip, idx) => (
                 <li key={`${idx}-${tip.slice(0, 24)}`} className="flex gap-2.5">
@@ -615,10 +609,7 @@ export function WeeklyProgressReportCard({
                 </button>
 
                 {isExpanded && (
-                  <div
-                    id={panelId}
-                    className="border-t border-[#ECEAE3] px-4 py-3"
-                  >
+                  <div id={panelId} className="border-t border-[#ECEAE3] px-4 py-3">
                     <p className="text-sm leading-relaxed text-[#4A5550]">
                       {insight.tip}
                     </p>

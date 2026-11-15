@@ -1,8 +1,5 @@
 import type { WellnessGoal } from '../types/wellness';
-import {
-  detectUrgentSafetyConcern,
-  URGENT_SAFETY_RESPONSE,
-} from '../shared/coachSafety';
+import { detectUrgentSafetyConcern, URGENT_SAFETY_RESPONSE } from '../shared/coachSafety';
 
 const MEDICAL_BOUNDARY_PATTERN =
   /\b(diagnos(e|is)|prescribe|medication|dosage|stop taking|pill|antidepressant|melatonin dose|ozempic|supplement dose)\b/i;
@@ -70,10 +67,10 @@ Consistent nourishment and approachable movement support daily energy and well-b
       goal === 'sleep'
         ? 'steadier evening wind-down habits'
         : goal === 'stress'
-        ? 'everyday stress resets and calm pauses'
-        : goal === 'weight'
-        ? 'sustainable nourishment and enjoyable movement'
-        : 'steady daily energy and pacing';
+          ? 'everyday stress resets and calm pauses'
+          : goal === 'weight'
+            ? 'sustainable nourishment and enjoyable movement'
+            : 'steady daily energy and pacing';
     return {
       isCrisisNotice: false,
       content: `Hello! I can share calm, practical everyday ideas around ${focusName}, sleep routines, gentle movement, and short resets during busy days.
@@ -89,7 +86,11 @@ Focusing on one small, concrete part of your day makes wellness habits much easi
   }
 
   // Caffeine, afternoon dip, or midday slump
-  if (/\b(caffeine|coffee|afternoon|slump|dip|midday|crash|groggy|tired at work)\b/i.test(lower)) {
+  if (
+    /\b(caffeine|coffee|afternoon|slump|dip|midday|crash|groggy|tired at work)\b/i.test(
+      lower
+    )
+  ) {
     return {
       isCrisisNotice: false,
       content: `Midday energy dips are a normal part of daily alertness rhythms, and small physical shifts often refresh focus without relying on late-day caffeine.
@@ -105,7 +106,9 @@ Brief light exposure, posture changes, and hydration reduce screen fatigue while
   }
 
   // Screen fatigue, posture, desk work, stretching
-  if (/\b(screen|desk|posture|sit(ting)?|stretch|neck|back|eyes|computer)\b/i.test(lower)) {
+  if (
+    /\b(screen|desk|posture|sit(ting)?|stretch|neck|back|eyes|computer)\b/i.test(lower)
+  ) {
     return {
       isCrisisNotice: false,
       content: `Long stretches at a screen quietly build tension in your eyes, neck, and shoulders, so brief micro-breaks work well even on packed days.
@@ -121,7 +124,9 @@ Frequent, low-effort posture resets interrupt static muscle tension before it bu
   }
 
   // Walking, steps, exercise, movement motivation
-  if (/\b(walk(ing)?|steps|exercise|workout|move|movement|sedentary|active)\b/i.test(lower)) {
+  if (
+    /\b(walk(ing)?|steps|exercise|workout|move|movement|sedentary|active)\b/i.test(lower)
+  ) {
     return {
       isCrisisNotice: false,
       content: `When motivation or time feels tight, shrinking movement down to a short, comfortable block makes it much easier to start.

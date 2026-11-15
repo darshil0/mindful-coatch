@@ -46,10 +46,7 @@ function TrendTooltip({ active, payload }: CustomTooltipProps) {
       <div className="mt-1.5 space-y-1">
         <div className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5 text-[#4A5550]">
-            <span
-              className="h-2 w-2 rounded-full bg-[#2F5D50]"
-              aria-hidden="true"
-            />
+            <span className="h-2 w-2 rounded-full bg-[#2F5D50]" aria-hidden="true" />
             Daily energy
           </span>
           <span className="font-mono font-medium text-[#1E2421] tabular-nums">
@@ -58,10 +55,7 @@ function TrendTooltip({ active, payload }: CustomTooltipProps) {
         </div>
         <div className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5 text-[#4A5550]">
-            <span
-              className="h-2 w-2 rounded-xs bg-[#8DB5A6]"
-              aria-hidden="true"
-            />
+            <span className="h-2 w-2 rounded-xs bg-[#8DB5A6]" aria-hidden="true" />
             Mindfulness sessions
           </span>
           <span className="font-mono font-medium text-[#1E2421] tabular-nums">

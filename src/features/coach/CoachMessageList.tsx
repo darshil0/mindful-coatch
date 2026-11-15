@@ -39,10 +39,7 @@ export function CoachMessageList({
     const lastAssistant = assistantItems[assistantItems.length - 1];
     if (lastAssistant) {
       const maxScrollWithoutClippingReply = Math.max(0, lastAssistant.offsetTop - 8);
-      const bottomScroll = Math.max(
-        0,
-        container.scrollHeight - container.clientHeight
-      );
+      const bottomScroll = Math.max(0, container.scrollHeight - container.clientHeight);
       container.scrollTop = Math.min(bottomScroll, maxScrollWithoutClippingReply);
     } else {
       container.scrollTop = container.scrollHeight;
@@ -80,10 +77,10 @@ export function CoachMessageList({
                 {msg.isCrisisNotice
                   ? 'Urgent support resources'
                   : msg.mode === 'live'
-                  ? 'Mindful Coach · Live AI'
-                  : msg.isFallbackFromError
-                  ? 'Mindful Coach · Built-in wellness guide (Live AI busy — not live AI)'
-                  : 'Mindful Coach · Curated Demo (not live AI)'}
+                    ? 'Mindful Coach · Live AI'
+                    : msg.isFallbackFromError
+                      ? 'Mindful Coach · Built-in wellness guide (Live AI busy — not live AI)'
+                      : 'Mindful Coach · Curated Demo (not live AI)'}
               </p>
               <StructuredMessageBody content={msg.content} />
             </div>

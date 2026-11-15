@@ -23,9 +23,7 @@ export function SevenDaySummaryCard({
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-medium text-[#5C6762]">
-            Past 7 local calendar days
-          </p>
+          <p className="text-xs font-medium text-[#5C6762]">Past 7 local calendar days</p>
           <h2
             id="seven-day-summary-heading"
             className="mt-1 font-display text-xl font-medium text-[#1E2421]"
@@ -79,8 +77,8 @@ export function SevenDaySummaryCard({
         <div className="mt-4 space-y-4">
           <p className="text-xs text-[#5C6762]">
             Showing {statistics.activeDaysInLast7} active{' '}
-            {statistics.activeDaysInLast7 === 1 ? 'day' : 'days'} across the past 7 days
-            · Gaps in energy indicate unrecorded days.
+            {statistics.activeDaysInLast7 === 1 ? 'day' : 'days'} across the past 7 days ·
+            Gaps in energy indicate unrecorded days.
           </p>
 
           {summaryViewMode === 'visual' && (

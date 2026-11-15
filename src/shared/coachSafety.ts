@@ -12,10 +12,7 @@ export const MAX_COACH_HISTORY_TURN_CHARS = 1800;
 export const MAX_COACH_TOTAL_HISTORY_CHARS = 7200;
 
 export type SafetyCategory =
-  | 'none'
-  | 'self_harm'
-  | 'medical_emergency'
-  | 'ambiguous_distress';
+  'none' | 'self_harm' | 'medical_emergency' | 'ambiguous_distress';
 
 export interface SafetyEvaluation {
   category: SafetyCategory;
@@ -137,7 +134,9 @@ export function evaluateSafetySignal(message: string): SafetyEvaluation {
     medicalCandidate = medicalCandidate.replace(new RegExp(idiom.source, 'g'), ' ');
   }
 
-  if (CLEAR_MEDICAL_EMERGENCY_PATTERNS.some((pattern) => pattern.test(medicalCandidate))) {
+  if (
+    CLEAR_MEDICAL_EMERGENCY_PATTERNS.some((pattern) => pattern.test(medicalCandidate))
+  ) {
     return {
       category: 'medical_emergency',
       isUrgent: true,

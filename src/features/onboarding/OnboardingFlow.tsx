@@ -126,8 +126,8 @@ export function OnboardingFlow({
                   id="preferred-name-hint"
                   className="mt-2 text-xs leading-relaxed text-[#5C6762]"
                 >
-                  Entering a name personalizes this browser view only; it does not create a
-                  password-protected or isolated account on a shared device.
+                  Entering a name personalizes this browser view only; it does not create
+                  a password-protected or isolated account on a shared device.
                 </p>
                 {nameError && (
                   <p
@@ -161,9 +161,9 @@ export function OnboardingFlow({
                 Choose one primary wellness focus
               </h1>
               <p className="mt-3 text-sm leading-relaxed text-[#4A5550]">
-                We use this to highlight relevant guided sessions and starter questions for{' '}
-                <span className="font-medium text-[#1E2421]">{nameInput}</span>. You can
-                switch your focus anytime in Profile.
+                We use this to highlight relevant guided sessions and starter questions
+                for <span className="font-medium text-[#1E2421]">{nameInput}</span>. You
+                can switch your focus anytime in Profile.
               </p>
 
               <fieldset className="mt-6">
@@ -238,9 +238,7 @@ export function OnboardingFlow({
 
           {step === 3 && (
             <div>
-              <p className="text-xs font-medium text-[#5C6762]">
-                Privacy & transparency
-              </p>
+              <p className="text-xs font-medium text-[#5C6762]">Privacy & transparency</p>
               <h1 className="mt-2 font-display text-2xl sm:text-3xl font-medium text-[#1E2421]">
                 How your information is handled
               </h1>
@@ -263,10 +261,10 @@ export function OnboardingFlow({
                       Your preferred name ({nameInput}), focus goal (
                       {GOAL_METADATA[selectedGoal].label}), daily energy, sleep, step, and
                       reflective-note check-ins, reminder schedules, and completed
-                      sessions stay in local browser storage. Persistent chat-history saving
-                      is turned <strong>off</strong> by default. Local browser storage is
-                      not encrypted, does not sync across devices, and may be visible to
-                      others using the same browser profile.
+                      sessions stay in local browser storage. Persistent chat-history
+                      saving is turned <strong>off</strong> by default. Local browser
+                      storage is not encrypted, does not sync across devices, and may be
+                      visible to others using the same browser profile.
                     </p>
                   </div>
                 </div>
@@ -281,10 +279,11 @@ export function OnboardingFlow({
                       What may be sent to an AI provider
                     </h2>
                     <p className="mt-1 text-sm leading-relaxed text-[#4A5550]">
-                      If you send a question in Live AI Coach mode, only your chat message,
-                      recent turns from that conversation, and your selected focus topic are
-                      sent through our server to an external AI provider to generate a
-                      reply. Your name and daily tracking logs are not sent automatically.
+                      If you send a question in Live AI Coach mode, only your chat
+                      message, recent turns from that conversation, and your selected
+                      focus topic are sent through our server to an external AI provider
+                      to generate a reply. Your name and daily tracking logs are not sent
+                      automatically.
                     </p>
                   </div>
                 </div>

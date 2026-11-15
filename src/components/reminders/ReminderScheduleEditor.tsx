@@ -111,7 +111,11 @@ export function ReminderScheduleEditor({
   };
 
   return (
-    <form onSubmit={handleSubmit} noValidate className={compact ? 'space-y-4' : 'space-y-5'}>
+    <form
+      onSubmit={handleSubmit}
+      noValidate
+      className={compact ? 'space-y-4' : 'space-y-5'}
+    >
       <div className={compact ? 'grid gap-3 sm:grid-cols-2' : 'space-y-3'}>
         {/* Morning Check-In Slot */}
         <div className="rounded-xl border border-[#E6E4DD] bg-[#FAF9F6] p-3.5">
@@ -248,7 +252,11 @@ export function ReminderScheduleEditor({
         )}
 
         {savedNotice && (
-          <span role="status" aria-live="polite" className="text-xs font-medium text-[#2F5D50]">
+          <span
+            role="status"
+            aria-live="polite"
+            className="text-xs font-medium text-[#2F5D50]"
+          >
             {savedNotice}
           </span>
         )}

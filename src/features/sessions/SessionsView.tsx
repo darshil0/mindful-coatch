@@ -1,7 +1,4 @@
-import type {
-  CompletedSessionRecord,
-  WellnessGoal,
-} from '../../types/wellness';
+import type { CompletedSessionRecord, WellnessGoal } from '../../types/wellness';
 import { getGoalMetadata } from '../../data/goals';
 import { GUIDED_SESSIONS } from '../../data/guidedSessions';
 import type { SessionPlayerHookResult } from '../../hooks/useSessionPlayer';

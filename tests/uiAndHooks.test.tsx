@@ -38,13 +38,11 @@ Object.defineProperty(globalThis, 'localStorage', {
 
 const React = await import('react');
 const { StrictMode, useState } = React;
-const { cleanup, fireEvent, render, screen, waitFor } = await import(
-  '@testing-library/react'
-);
+const { cleanup, fireEvent, render, screen, waitFor } =
+  await import('@testing-library/react');
 const { AppErrorBoundary } = await import('../src/components/ui/AppErrorBoundary');
-const { StructuredMessageBody } = await import(
-  '../src/features/coach/StructuredMessageBody'
-);
+const { StructuredMessageBody } =
+  await import('../src/features/coach/StructuredMessageBody');
 const { CoachView } = await import('../src/features/coach/CoachView');
 const { useWellnessStore } = await import('../src/hooks/useWellnessStore');
 const { CURRENT_AI_CONSENT_VERSION } = await import('../src/types/wellness');
@@ -85,12 +83,14 @@ test('CoachView enforces explicit Live AI consent gate before sending upstream, 
         import('../src/types/wellness').ChatMessage[]
       >([]);
       const [draftPrompt, setDraftPrompt] = useState<string | null>(initialDraft);
-      const [prefs, setPrefs] = useState<import('../src/types/wellness').UserPreferences>({
-        saveChatHistory: false,
-        reduceMotion: 'system',
-        acknowledgedAiNotice: false,
-        aiConsentVersion: null,
-      });
+      const [prefs, setPrefs] = useState<import('../src/types/wellness').UserPreferences>(
+        {
+          saveChatHistory: false,
+          reduceMotion: 'system',
+          acknowledgedAiNotice: false,
+          aiConsentVersion: null,
+        }
+      );
 
       return (
         <CoachView
@@ -117,19 +117,26 @@ test('CoachView enforces explicit Live AI consent gate before sending upstream, 
       );
     }
 
-    render(<Harness initialDraft="How can I wind down tonight?" />);
+    render(
+      <Harness initialDraft="Can you suggest three gentle evening habits to help me wind down before sleep?" />
+    );
 
     // Wait for /api/coach/status -> Live AI consent gate appears and draft is HELD locally (zero /api/coach/chat fetch)
     await waitFor(() => {
       assert.ok(screen.getByTestId('live-ai-consent-gate'));
     });
     await waitFor(() => {
-      assert.match(document.body.textContent ?? '', /How can I wind down tonight\?/);
+      assert.match(
+        document.body.textContent ?? '',
+        /Can you suggest three gentle evening habits to help me wind down before sleep\?/
+      );
     });
     assert.equal(chatCalls.length, 0);
 
     // Urgent crisis input still produces immediate local helpline notice WITHOUT sending upstream or requiring consent
-    const composer = screen.getByLabelText('Ask a wellness question') as HTMLTextAreaElement;
+    const composer = screen.getByLabelText(
+      'Ask a wellness question'
+    ) as HTMLTextAreaElement;
     fireEvent.change(composer, { target: { value: 'I am ending my life tonight' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await waitFor(() => {
@@ -157,7 +164,10 @@ test('AppErrorBoundary catches render errors without clearing storage and recove
   const originalConsoleError = console.error;
   console.error = () => {};
   try {
-    dom.window.localStorage.setItem(STORAGE_KEYS.PROFILE, '{"preferredName":"Preserved"}');
+    dom.window.localStorage.setItem(
+      STORAGE_KEYS.PROFILE,
+      '{"preferredName":"Preserved"}'
+    );
     let shouldThrow = true;
 
     function MaybeThrow() {
@@ -200,7 +210,9 @@ test('useWellnessStore StrictMode ?autostart=1 is idempotent and cross-tab stora
       return (
         <div>
           <span data-testid="probe-name">{store.profile?.preferredName ?? 'none'}</span>
-          <span data-testid="probe-steps">{store.entriesByDate['2026-11-15']?.steps ?? 'none'}</span>
+          <span data-testid="probe-steps">
+            {store.entriesByDate['2026-11-15']?.steps ?? 'none'}
+          </span>
         </div>
       );
     }

@@ -6,9 +6,7 @@ interface WeeklyWellnessScoreCardProps {
   weeklyScore: WeeklyWellnessScore;
 }
 
-export function WeeklyWellnessScoreCard({
-  weeklyScore,
-}: WeeklyWellnessScoreCardProps) {
+export function WeeklyWellnessScoreCard({ weeklyScore }: WeeklyWellnessScoreCardProps) {
   const [showExplanation, setShowExplanation] = useState(false);
 
   return (
@@ -18,9 +16,7 @@ export function WeeklyWellnessScoreCard({
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-medium text-[#5C6762]">
-            Past 7 local calendar days
-          </p>
+          <p className="text-xs font-medium text-[#5C6762]">Past 7 local calendar days</p>
           <h2
             id="weekly-wellness-score-heading"
             className="mt-1 font-display text-xl font-medium text-[#1E2421]"
@@ -51,13 +47,13 @@ export function WeeklyWellnessScoreCard({
           id="weekly-score-explanation"
           className="mt-4 rounded-xl bg-[#FAF9F6] p-4 text-xs leading-relaxed text-[#4A5550]"
         >
-          <strong>Weekly wellness score</strong> combines only the metrics you
-          actually recorded over the past 7 local days: Energy (35% weight), Sleep
-          relative to 7–9h per night (25%), 7-day Check-in &amp; session consistency
-          (25%), and Movement toward 8,000 steps per day (15%). Sleep and movement
-          average each recorded day’s score so high day-to-day swings stay visible,
-          unrecorded categories are omitted rather than counted as zero, and this is a
-          personal reflection guide rather than a clinical metric.
+          <strong>Weekly wellness score</strong> combines only the metrics you actually
+          recorded over the past 7 local days: Energy (35% weight), Sleep relative to 7–9h
+          per night (25%), 7-day Check-in &amp; session consistency (25%), and Movement
+          toward 8,000 steps per day (15%). Sleep and movement average each recorded day’s
+          score so high day-to-day swings stay visible, unrecorded categories are omitted
+          rather than counted as zero, and this is a personal reflection guide rather than
+          a clinical metric.
         </div>
       )}
 
@@ -81,9 +77,7 @@ export function WeeklyWellnessScoreCard({
               >
                 {weeklyScore.score}
               </span>
-              <span className="font-mono text-sm text-[#5C6762] tabular-nums">
-                / 100
-              </span>
+              <span className="font-mono text-sm text-[#5C6762] tabular-nums">/ 100</span>
               <span className="text-sm font-medium text-[#2F5D50]">
                 · {weeklyScore.tierLabel}
               </span>

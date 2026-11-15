@@ -1,5 +1,10 @@
 import dotenv from 'dotenv';
-import express, { type Express, type NextFunction, type Request, type Response } from 'express';
+import express, {
+  type Express,
+  type NextFunction,
+  type Request,
+  type Response,
+} from 'express';
 import fs from 'fs';
 import helmet from 'helmet';
 import path from 'path';
@@ -28,16 +33,15 @@ export interface CreateAppOptions {
   distPath?: string;
   trustProxy?: TrustProxyConfig;
   enableHsts?: boolean;
+  disableVite?: boolean;
   coachDeps?: CoachRouterDependencies;
 }
 
 export async function createApp(options?: CreateAppOptions): Promise<Express> {
-  const isProduction =
-    options?.isProduction ?? process.env.NODE_ENV === 'production';
+  const isProduction = options?.isProduction ?? process.env.NODE_ENV === 'production';
   const distPath = options?.distPath ?? path.join(__dirname, 'dist');
   const trustProxy = options?.trustProxy ?? resolveTrustProxyConfig();
-  const enableHsts =
-    options?.enableHsts ?? process.env.ENABLE_HSTS === 'true';
+  const enableHsts = options?.enableHsts ?? process.env.ENABLE_HSTS === 'true';
 
   if (isProduction) {
     const indexHtmlPath = path.join(distPath, 'index.html');
@@ -73,8 +77,7 @@ export async function createApp(options?: CreateAppOptions): Promise<Express> {
               objectSrc: ["'none'"],
               baseUri: ["'self'"],
               formAction: ["'self'"],
-              frameAncestors:
-                frameAncestors.length > 0 ? frameAncestors : ["'none'"],
+              frameAncestors: frameAncestors.length > 0 ? frameAncestors : ["'none'"],
             },
           }
         : false,
@@ -84,8 +87,7 @@ export async function createApp(options?: CreateAppOptions): Promise<Express> {
           : false,
       crossOriginEmbedderPolicy: false,
       referrerPolicy: { policy: 'no-referrer' },
-      xFrameOptions:
-        frameAncestors.length > 0 ? false : { action: 'deny' },
+      xFrameOptions: frameAncestors.length > 0 ? false : { action: 'deny' },
     })
   );
 
@@ -94,14 +96,14 @@ export async function createApp(options?: CreateAppOptions): Promise<Express> {
   app.use('/api/coach', createCoachRouter(options?.coachDeps));
   app.use('/api', apiNotFoundHandler);
 
-  if (!isProduction) {
+  if (!isProduction && !options?.disableVite) {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else {
+  } else if (isProduction) {
     app.use(
       express.static(distPath, {
         index: false,

@@ -100,10 +100,7 @@ export class GlobalBudgetLimiter {
     this.maxChars = Math.max(1, options.maxChars);
   }
 
-  public consume(
-    charCost: number,
-    nowMs: number = Date.now()
-  ): RateLimitCheckResult {
+  public consume(charCost: number, nowMs: number = Date.now()): RateLimitCheckResult {
     this.entries = this.entries.filter((e) => nowMs - e.ts < this.windowMs);
     const totalChars = this.entries.reduce((acc, item) => acc + item.chars, 0);
 

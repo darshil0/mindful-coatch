@@ -40,8 +40,7 @@ export function computeSelfReportedEnergyScore(
 export function hasAnyRecordedMetric(entry: DailyEntry | null | undefined): boolean {
   if (!entry) return false;
   const hasNote =
-    typeof entry.reflectiveNote === 'string' &&
-    entry.reflectiveNote.trim().length > 0;
+    typeof entry.reflectiveNote === 'string' && entry.reflectiveNote.trim().length > 0;
   return (
     entry.energyRating !== null ||
     entry.steps !== null ||
@@ -63,7 +62,8 @@ export function getChronologicalReflectiveNotes(
     if (!entry || !isValidDateKey(dateKey)) {
       continue;
     }
-    const rawNote = typeof entry.reflectiveNote === 'string' ? entry.reflectiveNote.trim() : '';
+    const rawNote =
+      typeof entry.reflectiveNote === 'string' ? entry.reflectiveNote.trim() : '';
     if (!rawNote) {
       continue;
     }
@@ -654,8 +654,7 @@ export function buildWeeklyProgressReport(params: {
   const periodStart =
     statistics.sevenDayWindow[0]?.date ?? shiftLocalDateKey(fallbackEnd, -6);
   const periodEnd =
-    statistics.sevenDayWindow[statistics.sevenDayWindow.length - 1]?.date ??
-    fallbackEnd;
+    statistics.sevenDayWindow[statistics.sevenDayWindow.length - 1]?.date ?? fallbackEnd;
 
   const reflectiveNotesInLast7 = statistics.sevenDayWindow.filter((day) => {
     const note = entriesByDate[day.date]?.reflectiveNote;
@@ -876,7 +875,9 @@ export function buildWeeklyProgressReport(params: {
     snippetAverages.push(`Energy ${statistics.averageEnergy7d.averageScore}/100`);
   }
   if (statistics.averageSleep7d.averageMinutes !== null) {
-    snippetAverages.push(`Sleep ${formatSleepMinutes(statistics.averageSleep7d.averageMinutes)}`);
+    snippetAverages.push(
+      `Sleep ${formatSleepMinutes(statistics.averageSleep7d.averageMinutes)}`
+    );
   }
   if (statistics.averageSteps7d.averageSteps !== null) {
     snippetAverages.push(
@@ -945,4 +946,3 @@ export function buildWeeklyProgressReport(params: {
     plainTextReport: plainLines.join('\n'),
   };
 }
-

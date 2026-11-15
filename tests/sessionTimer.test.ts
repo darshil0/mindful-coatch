@@ -74,7 +74,12 @@ test('session timer enforces grace window, midnight-crossing accuracy, pause-aft
 
   // 2. Midnight crossing: started 23:59:30 local for 60s -> wakes at 00:02:00 -> completedAtIso is 00:00:30 local next day
   const beforeMidnight = new Date(2026, 10, 14, 23, 59, 30, 0).getTime();
-  const midnightRun = startSessionTimer('gentle-breathing', 60, beforeMidnight, 'run-midnight');
+  const midnightRun = startSessionTimer(
+    'gentle-breathing',
+    60,
+    beforeMidnight,
+    'run-midnight'
+  );
   const wokeNextDay = syncSessionTimer(midnightRun, beforeMidnight + 150_000);
   assert.equal(wokeNextDay.status, 'completed');
   assert.ok(wokeNextDay.completedAtIso);

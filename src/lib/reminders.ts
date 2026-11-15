@@ -156,8 +156,7 @@ export function hasCompletedEveningWindowSession(
     if (session.date !== todayDateKey) continue;
     const completedAtDate = new Date(session.completedAt);
     if (Number.isNaN(completedAtDate.getTime())) continue;
-    const sessionMins =
-      completedAtDate.getHours() * 60 + completedAtDate.getMinutes();
+    const sessionMins = completedAtDate.getHours() * 60 + completedAtDate.getMinutes();
     if (sessionMins >= windowStartMinutes) {
       return true;
     }
@@ -231,8 +230,7 @@ export function evaluateReminderState(params: {
   // Evaluate started slots in reverse chronological order so the most recent due slot takes priority,
   // falling back to an earlier uncompleted slot if the later one was done or dismissed.
   const startedSlots = enabledSlots.filter((slot) => slot.minutes <= nowMinutes);
-  const nextUpcomingSlot =
-    enabledSlots.find((slot) => slot.minutes > nowMinutes) ?? null;
+  const nextUpcomingSlot = enabledSlots.find((slot) => slot.minutes > nowMinutes) ?? null;
 
   for (let i = startedSlots.length - 1; i >= 0; i -= 1) {
     const slot = startedSlots[i];

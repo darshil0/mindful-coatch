@@ -39,6 +39,7 @@ async function withTestServer(
   try {
     await run(baseUrl);
   } finally {
+    server.closeAllConnections?.();
     await new Promise<void>((resolve, reject) => {
       server.close((err) => (err ? reject(err) : resolve()));
     });
@@ -47,32 +48,52 @@ async function withTestServer(
 
 test('coach safety handles Unicode normalization, zero-width evasion, crisis variants, benign idioms, and ambiguous distress (H1/H2)', () => {
   // Typographic curly apostrophe + Unicode NFKC
-  assert.equal(normalizeSafetyText('Ｉ don’t\u200B want to live anymore'), 'i don\'t want to live anymore');
+  assert.equal(
+    normalizeSafetyText('Ｉ don’t\u200B want to live anymore'),
+    "i don't want to live anymore"
+  );
   assert.equal(detectUrgentSafetyConcern('I don’t want to live anymore'), true);
   assert.equal(detectUrgentSafetyConcern('How do I k\u200Bill myself'), true);
   assert.equal(detectUrgentSafetyConcern('Thinking about ending my life tonight'), true);
   assert.equal(detectUrgentSafetyConcern('Thinking about taking my own life'), true);
   assert.equal(detectUrgentSafetyConcern('I think I am having a heart attack'), true);
-  assert.equal(detectUrgentSafetyConcern('Someone here is having a seizure and choking'), true);
+  assert.equal(
+    detectUrgentSafetyConcern('Someone here is having a seizure and choking'),
+    true
+  );
   assert.equal(detectUrgentSafetyConcern('I took too many pills'), true);
   assert.equal(detectUrgentSafetyConcern('I want to unalive myself'), true);
 
   // Benign everyday idioms must not lock out normal coaching
-  assert.equal(detectUrgentSafetyConcern('I need to cut myself some slack at work'), false);
-  assert.equal(detectUrgentSafetyConcern('My friend is passing out flyers at the park'), false);
+  assert.equal(
+    detectUrgentSafetyConcern('I need to cut myself some slack at work'),
+    false
+  );
+  assert.equal(
+    detectUrgentSafetyConcern('My friend is passing out flyers at the park'),
+    false
+  );
   assert.equal(detectUrgentSafetyConcern('How can I wind down after work?'), false);
 
   // Ambiguous somatic stress phrase should suppress upstream AI cautiously without diagnosing an emergency
-  const stressBreath = evaluateSafetySignal("I can't breathe at work with all these deadlines");
+  const stressBreath = evaluateSafetySignal(
+    "I can't breathe at work with all these deadlines"
+  );
   assert.equal(stressBreath.category, 'ambiguous_distress');
   assert.equal(stressBreath.requiresUpstreamSuppression, true);
   assert.ok(stressBreath.response);
-  assert.match(stressBreath.response, /findahelpline\.com/i);
-  assert.match(stressBreath.response, /112/);
+  assert.match(stressBreath.response, /911.*999.*112.*000/);
+  assert.match(
+    evaluateSafetySignal('Thinking about ending my life tonight').response ?? '',
+    /findahelpline\.com/i
+  );
   assert.equal(isCannedSafetyResponse(stressBreath.response), true);
 
   // Demo weight/energy guidance stays non-restrictive
-  const weightDemo = buildCuratedDemoResponse('How do I lose 15 pounds in a week?', 'weight');
+  const weightDemo = buildCuratedDemoResponse(
+    'How do I lose 15 pounds in a week?',
+    'weight'
+  );
   assert.equal(weightDemo.isCrisisNotice, false);
   assert.match(weightDemo.content, /Next steps:/);
   assert.match(weightDemo.content, /Why this may help:/);
@@ -178,11 +199,17 @@ test('SlidingWindowRateLimiter resists key churn eviction, enforces GlobalBudget
   // Once window expires, ip-1 is allowed again
   assert.equal(limiter.allow('ip-1', 12_000), true);
 
-  const budget = new GlobalBudgetLimiter({ windowMs: 10_000, maxRequests: 3, maxChars: 100 });
+  const budget = new GlobalBudgetLimiter({
+    windowMs: 10_000,
+    maxRequests: 3,
+    maxChars: 100,
+  });
   assert.equal(budget.consume(60, 1_000).allowed, true);
   assert.equal(budget.consume(50, 1_100).allowed, false);
   assert.equal(budget.consume(30, 1_200).allowed, true);
-  assert.equal(budget.consume(1, 1_300).allowed, false);
+  assert.equal(budget.consume(15, 1_250).allowed, false);
+  assert.equal(budget.consume(5, 1_300).allowed, true);
+  assert.equal(budget.consume(1, 1_350).allowed, false);
 
   const sem = new ConcurrencySemaphore(1, 1);
   const rel1 = await sem.acquire();
@@ -255,7 +282,10 @@ test('resolveTrustProxyConfig defaults safely to false and rejects unsafe true o
   assert.equal(resolveTrustProxyConfig('false'), false);
   assert.equal(resolveTrustProxyConfig('1'), 1);
   assert.equal(resolveTrustProxyConfig('loopback'), 'loopback');
-  assert.throws(() => resolveTrustProxyConfig('true'), /wildcard "true" is disallowed/i);
+  assert.throws(
+    () => resolveTrustProxyConfig('true'),
+    /Invalid TRUST_PROXY entry "true"/i
+  );
   assert.throws(() => resolveTrustProxyConfig('99'), /hop count/i);
   assert.throws(() => resolveTrustProxyConfig('not-an-ip'), /Invalid TRUST_PROXY/i);
 });
@@ -265,6 +295,7 @@ test('Express app enforces spoofed X-Forwarded-For rate limits, crisis short-cir
   await withTestServer(
     {
       isProduction: false,
+      disableVite: true,
       trustProxy: false,
       coachDeps: {
         isLiveConfigured: () => true,
@@ -354,7 +385,10 @@ test('Express app enforces spoofed X-Forwarded-For rate limits, crisis short-cir
   // Verify production Helmet headers & dist serving on ephemeral dir
   const tmpDist = fs.mkdtempSync(path.join(os.tmpdir(), 'mindful-dist-'));
   fs.mkdirSync(path.join(tmpDist, 'assets'));
-  fs.writeFileSync(path.join(tmpDist, 'index.html'), '<!doctype html><html><body>ok</body></html>');
+  fs.writeFileSync(
+    path.join(tmpDist, 'index.html'),
+    '<!doctype html><html><body>ok</body></html>'
+  );
   try {
     await withTestServer(
       {

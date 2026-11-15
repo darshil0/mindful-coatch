@@ -90,8 +90,9 @@ export function DailyCheckInCard({
         behavior: reducedMotion ? 'auto' : 'smooth',
         block: 'start',
       });
-      const firstButton =
-        checkInSectionRef.current.querySelector<HTMLElement>('button, input, textarea');
+      const firstButton = checkInSectionRef.current.querySelector<HTMLElement>(
+        'button, input, textarea'
+      );
       firstButton?.focus();
     }
   }, [focusCheckInSignal]);
@@ -131,10 +132,7 @@ export function DailyCheckInCard({
     const sleepVal = sleepRes.valid ? sleepRes.value : null;
     const noteVal = noteRes.valid ? noteRes.value : null;
     const isAllEmpty =
-      energyVal === null &&
-      stepsVal === null &&
-      sleepVal === null &&
-      noteVal === null;
+      energyVal === null && stepsVal === null && sleepVal === null && noteVal === null;
 
     if (isAllEmpty && !hasSavedToday) {
       setFormErrors({
@@ -182,9 +180,7 @@ export function DailyCheckInCard({
               >
                 {savedEnergyScore}
               </span>
-              <span className="font-mono text-sm text-[#5C6762] tabular-nums">
-                / 100
-              </span>
+              <span className="font-mono text-sm text-[#5C6762] tabular-nums">/ 100</span>
               <span className="text-sm text-[#4A5550]">
                 · Rated {todayEntry?.energyRating} of 10
               </span>
@@ -517,8 +513,8 @@ export function DailyCheckInCard({
             </div>
           </div>
           <p id="reflective-note-hint" className="mt-1 text-xs text-[#5C6762]">
-            Optional brief journal reflection on how your day felt, what helped, or
-            what’s on your mind.
+            Optional brief journal reflection on how your day felt, what helped, or what’s
+            on your mind.
           </p>
           <textarea
             id="daily-reflective-note-input"

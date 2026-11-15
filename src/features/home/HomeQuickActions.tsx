@@ -58,9 +58,7 @@ export function HomeQuickActions({
         aria-labelledby="quick-coach-heading"
         className="rounded-2xl border border-[#E6E4DD] bg-white p-6"
       >
-        <p className="text-xs font-medium text-[#5C6762]">
-          Wellness education · Coach
-        </p>
+        <p className="text-xs font-medium text-[#5C6762]">Wellness education · Coach</p>
         <h2
           id="quick-coach-heading"
           className="mt-1.5 font-display text-xl font-medium text-[#1E2421]"

@@ -97,9 +97,9 @@ export function CrisisResourcesDialog({ open, onClose }: CrisisResourcesDialogPr
                 id="crisis-resources-desc"
                 className="mt-1 text-xs leading-relaxed text-[#5C6762]"
               >
-                Mindful Coach is an educational wellness tool and cannot assess or
-                respond to emergencies. If you or someone nearby may be in immediate
-                danger, please connect directly with human support.
+                Mindful Coach is an educational wellness tool and cannot assess or respond
+                to emergencies. If you or someone nearby may be in immediate danger,
+                please connect directly with human support.
               </p>
             </div>
           </div>

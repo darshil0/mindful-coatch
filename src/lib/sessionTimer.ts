@@ -208,7 +208,8 @@ export function resumeSessionTimer(
       status: 'completed',
       accumulatedElapsedMs: durationMs,
       lastResumedAtMs: null,
-      completedAtIso: state.completedAtIso ?? new Date(sanitizeNonNegativeMs(nowMs)).toISOString(),
+      completedAtIso:
+        state.completedAtIso ?? new Date(sanitizeNonNegativeMs(nowMs)).toISOString(),
     };
   }
   return {
@@ -228,7 +229,11 @@ export function endSessionEarly(
   state: SessionTimerState,
   nowMs: number
 ): SessionTimerState {
-  if (state.status === 'completed' || state.status === 'idle' || state.status === 'ended_early') {
+  if (
+    state.status === 'completed' ||
+    state.status === 'idle' ||
+    state.status === 'ended_early'
+  ) {
     return state;
   }
   const synced = syncSessionTimer(state, nowMs);

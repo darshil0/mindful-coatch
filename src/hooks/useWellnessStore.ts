@@ -52,10 +52,7 @@ export interface WellnessStoreHookResult {
     record: CompletedSessionRecord,
     todayDateKey?: string
   ) => void;
-  updateReminderSchedule: (
-    nextSchedule: ReminderSchedule,
-    todayDateKey?: string
-  ) => void;
+  updateReminderSchedule: (nextSchedule: ReminderSchedule, todayDateKey?: string) => void;
   dismissReminderForToday: (slot: ReminderSlotId, todayDateKey?: string) => void;
   appendChatMessages: (added: ChatMessage[]) => void;
   replaceLastFallbackMessage: (replacement: ChatMessage) => void;
@@ -72,8 +69,7 @@ function isAutostartAllowed(): boolean {
   const metaEnv = (import.meta as { env?: Record<string, unknown> }).env;
   if (!metaEnv) {
     return (
-      typeof process !== 'undefined' &&
-      process.env.VITE_ENABLE_TEST_AUTOSTART === 'true'
+      typeof process !== 'undefined' && process.env.VITE_ENABLE_TEST_AUTOSTART === 'true'
     );
   }
   return metaEnv.DEV === true || metaEnv.VITE_ENABLE_TEST_AUTOSTART === 'true';
@@ -115,9 +111,7 @@ export function useWellnessStore(): WellnessStoreHookResult {
     initialHydrated.reminderDismissals
   );
   const entriesRef = useRef<Record<string, DailyEntry>>(initialHydrated.entriesByDate);
-  const sessionsRef = useRef<CompletedSessionRecord[]>(
-    initialHydrated.completedSessions
-  );
+  const sessionsRef = useRef<CompletedSessionRecord[]>(initialHydrated.completedSessions);
   const saveChatHistoryRef = useRef<boolean>(initialHydrated.preferences.saveChatHistory);
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(
@@ -250,9 +244,7 @@ export function useWellnessStore(): WellnessStoreHookResult {
       setProfile(incomingProfile);
       setEntriesByDate(mergedEntries);
       setCompletedSessions(mergedSessions);
-      setMindfulStreak(
-        computeMindfulStreak(mergedEntries, mergedSessions, todayKey)
-      );
+      setMindfulStreak(computeMindfulStreak(mergedEntries, mergedSessions, todayKey));
       setPreferences(incomingPrefs);
       setReminderSchedule(incomingSchedule);
       setReminderDismissals(incomingDismissals);

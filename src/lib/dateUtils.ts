@@ -20,11 +20,7 @@ export function isValidDateKey(value: unknown): value is string {
   }
   const [y, m, d] = value.split('-').map(Number);
   const dt = new Date(y, m - 1, d);
-  return (
-    dt.getFullYear() === y &&
-    dt.getMonth() === m - 1 &&
-    dt.getDate() === d
-  );
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
 }
 
 export function getLocalDateKey(date: Date = new Date()): string {
@@ -66,9 +62,7 @@ export function getPastLocalDateKeys(
   anchorDateKey: string = getLocalDateKey()
 ): string[] {
   const count = Math.max(1, Math.floor(days));
-  const safeAnchor = isValidDateKey(anchorDateKey)
-    ? anchorDateKey
-    : getLocalDateKey();
+  const safeAnchor = isValidDateKey(anchorDateKey) ? anchorDateKey : getLocalDateKey();
   const anchor = parseLocalDateKey(safeAnchor);
   const keys: string[] = [];
   for (let offset = count - 1; offset >= 0; offset -= 1) {
@@ -115,9 +109,7 @@ export function formatDayNumber(dateKey: string): string {
  * Midnight–04:59 returns `'Good evening'` rather than `'Good morning'`.
  */
 export function getTimeOfDayGreeting(hour: number = new Date().getHours()): string {
-  const normalizedHour = Number.isFinite(hour)
-    ? ((Math.floor(hour) % 24) + 24) % 24
-    : 12;
+  const normalizedHour = Number.isFinite(hour) ? ((Math.floor(hour) % 24) + 24) % 24 : 12;
   if (normalizedHour < 5) return 'Good evening';
   if (normalizedHour < 12) return 'Good morning';
   if (normalizedHour < 18) return 'Good afternoon';

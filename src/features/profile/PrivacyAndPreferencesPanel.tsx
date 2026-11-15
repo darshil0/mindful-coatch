@@ -106,9 +106,7 @@ export function PrivacyAndPreferencesPanel({
 
         {/* Daily reminders schedule */}
         <div className="mt-6 border-t border-[#ECEAE3] pt-5">
-          <h3 className="text-sm font-medium text-[#1E2421]">
-            Daily reminders
-          </h3>
+          <h3 className="text-sm font-medium text-[#1E2421]">Daily reminders</h3>
           <p className="mt-1 mb-3 text-xs leading-relaxed text-[#5C6762]">
             Set gentle local times for your morning check-in and evening reflection
             reminders.

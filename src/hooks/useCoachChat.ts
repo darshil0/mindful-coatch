@@ -13,10 +13,7 @@ import {
   MAX_COACH_MESSAGE_LENGTH,
   URGENT_SELF_HARM_RESPONSE,
 } from '../shared/coachSafety';
-import {
-  fetchCoachStatus,
-  sendCoachChatMessage,
-} from '../services/coachApiClient';
+import { fetchCoachStatus, sendCoachChatMessage } from '../services/coachApiClient';
 
 export function hasValidAiConsent(preferences: UserPreferences): boolean {
   return (

@@ -76,10 +76,13 @@ test('validation distinguishes missing inputs from zero, counts graphemes cleanl
 
   // Reflective note: blank -> null, preserves line breaks, rejects > MAX_REFLECTIVE_NOTE_LENGTH
   assert.deepEqual(validateReflectiveNote('   \n  '), { valid: true, value: null });
-  assert.deepEqual(validateReflectiveNote('  Felt calmer after a walk.\r\nSlept better.  '), {
-    valid: true,
-    value: 'Felt calmer after a walk.\nSlept better.',
-  });
+  assert.deepEqual(
+    validateReflectiveNote('  Felt calmer after a walk.\r\nSlept better.  '),
+    {
+      valid: true,
+      value: 'Felt calmer after a walk.\nSlept better.',
+    }
+  );
   assert.equal(
     validateReflectiveNote('a'.repeat(MAX_REFLECTIVE_NOTE_LENGTH)).valid,
     true

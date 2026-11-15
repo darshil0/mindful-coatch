@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, CircleCheck, Pause, Play, Square } from 'lucide-react';
-import type {
-  GuidedSessionDefinition,
-  SessionTimerState,
-} from '../../types/wellness';
+import type { GuidedSessionDefinition, SessionTimerState } from '../../types/wellness';
 import {
   formatTimerMmSs,
   getActiveStepForElapsed,
@@ -80,7 +77,7 @@ export function ActiveSessionPlayer({
     ? cycleSecond < 4
       ? 'Optional cue: Easy, unforced inhale (~4s)'
       : 'Optional cue: Soft, unhurried exhale (~5s)'
-    : activeStepInfo.step.breathCue ?? 'Breathe naturally at your own pace.';
+    : (activeStepInfo.step.breathCue ?? 'Breathe naturally at your own pace.');
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -174,9 +171,7 @@ export function ActiveSessionPlayer({
               </h2>
               <p className="mx-auto max-w-md text-sm text-[#4A5550]">
                 You completed {Math.round(timerState.durationMs / 60000)}{' '}
-                {Math.round(timerState.durationMs / 60000) === 1
-                  ? 'minute'
-                  : 'minutes'}{' '}
+                {Math.round(timerState.durationMs / 60000) === 1 ? 'minute' : 'minutes'}{' '}
                 of {session.title.toLowerCase()}. Take an unhurried moment before moving
                 into what is next.
               </p>
@@ -228,8 +223,7 @@ export function ActiveSessionPlayer({
 
               {/* Optional Gentle Breathing Cue (respects reduced motion) */}
               {session.hasOptionalBreathingPacer &&
-                (timerState.status === 'running' ||
-                  timerState.status === 'paused') && (
+                (timerState.status === 'running' || timerState.status === 'paused') && (
                   <div className="mx-auto mt-5 max-w-md border-t border-[#E6E4DD] pt-4">
                     {!effectiveReducedMotion &&
                       timerState.status === 'running' &&
@@ -343,8 +337,7 @@ export function ActiveSessionPlayer({
           <ol className="mt-4 divide-y divide-[#ECEAE3]">
             {session.steps.map((step, idx) => {
               const isCurrent =
-                (timerState.status === 'running' ||
-                  timerState.status === 'paused') &&
+                (timerState.status === 'running' || timerState.status === 'paused') &&
                 activeStepInfo.index === idx;
               return (
                 <li

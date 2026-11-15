@@ -2,8 +2,7 @@ import type { DailyEntry, WellnessGoal } from '../types/wellness.ts';
 import { WELLNESS_GOALS } from '../data/goals.ts';
 
 export type ValidationResult<T> =
-  | { valid: true; value: T }
-  | { valid: false; error: string };
+  { valid: true; value: T } | { valid: false; error: string };
 
 export const MAX_PREFERRED_NAME_GRAPHEMES = 50;
 const MAX_PREFERRED_NAME_CODE_UNITS = 200;
@@ -22,7 +21,9 @@ export function countGraphemes(text: string): number {
 }
 
 export function isValidWellnessGoal(value: unknown): value is WellnessGoal {
-  return typeof value === 'string' && (WELLNESS_GOALS as readonly string[]).includes(value);
+  return (
+    typeof value === 'string' && (WELLNESS_GOALS as readonly string[]).includes(value)
+  );
 }
 
 /**
@@ -30,8 +31,11 @@ export function isValidWellnessGoal(value: unknown): value is WellnessGoal {
  * rather than raw UTF-16 code units, while still bounding extreme inputs.
  */
 export function validatePreferredName(raw: string): ValidationResult<string> {
-  // eslint-disable-next-line no-control-regex
-  const cleaned = raw.replace(/[\u0000-\u001F\u007F]/g, '').replace(/\s+/g, ' ').trim();
+  const cleaned = raw
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001F\u007F]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (cleaned.length === 0) {
     return {
       valid: false,
@@ -168,7 +172,10 @@ export function validateReflectiveNote(raw: string): ValidationResult<string | n
     return { valid: true, value: null };
   }
 
-  if (countGraphemes(normalized) > MAX_REFLECTIVE_NOTE_LENGTH && normalized.length > MAX_REFLECTIVE_NOTE_LENGTH) {
+  if (
+    countGraphemes(normalized) > MAX_REFLECTIVE_NOTE_LENGTH &&
+    normalized.length > MAX_REFLECTIVE_NOTE_LENGTH
+  ) {
     return {
       valid: false,
       error: `Reflective note must be ${MAX_REFLECTIVE_NOTE_LENGTH} characters or fewer.`,

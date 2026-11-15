@@ -147,7 +147,8 @@ export function evaluateConversationHistoryPolicy(
   const trimmedCurrent = currentUserMessage.trim();
   const isAmbiguousFollowup =
     trimmedCurrent.length <= 90 &&
-    (FOLLOWUP_CRISIS_HINT.test(trimmedCurrent) || trimmedCurrent.split(/\s+/).length <= 8);
+    (FOLLOWUP_CRISIS_HINT.test(trimmedCurrent) ||
+      trimmedCurrent.split(/\s+/).length <= 8);
 
   if (
     ((latestUserSafety && latestUserSafety.requiresUpstreamSuppression) ||
@@ -208,13 +209,14 @@ export function normalizeConversationContents(
     currentUserMessage
   );
 
-  const trimmedCurrent = currentUserMessage
-    .trim()
-    .slice(0, MAX_COACH_HISTORY_TURN_CHARS);
+  const trimmedCurrent = currentUserMessage.trim().slice(0, MAX_COACH_HISTORY_TURN_CHARS);
 
   // Apply cumulative history budget from newest backward so oldest turns drop cleanly first
   const budgetedHistory: CoachHistoryItem[] = [];
-  let remainingBudget = Math.max(0, MAX_COACH_TOTAL_HISTORY_CHARS - trimmedCurrent.length);
+  let remainingBudget = Math.max(
+    0,
+    MAX_COACH_TOTAL_HISTORY_CHARS - trimmedCurrent.length
+  );
   for (let i = sanitizedHistory.length - 1; i >= 0; i -= 1) {
     const turn = sanitizedHistory[i];
     if (turn.content.length <= remainingBudget) {
@@ -303,10 +305,10 @@ export function classifyUpstreamError(err: unknown): ClassifiedUpstreamError {
     typeof errObj.status === 'number'
       ? errObj.status
       : typeof errObj.statusCode === 'number'
-      ? errObj.statusCode
-      : typeof errObj.code === 'number'
-      ? errObj.code
-      : undefined;
+        ? errObj.statusCode
+        : typeof errObj.code === 'number'
+          ? errObj.code
+          : undefined;
   const errCode = typeof errObj.code === 'string' ? errObj.code : '';
 
   if (
@@ -342,10 +344,7 @@ export function classifyUpstreamError(err: unknown): ClassifiedUpstreamError {
     };
   }
 
-  if (
-    rawStatus === 400 ||
-    /INVALID_ARGUMENT/i.test(`${errCode} ${errMessage}`)
-  ) {
+  if (rawStatus === 400 || /INVALID_ARGUMENT/i.test(`${errCode} ${errMessage}`)) {
     return {
       status: 400,
       code: 'INVALID_AI_REQUEST',
@@ -410,6 +409,29 @@ export async function generateLiveCoachReply(
     candidateModels?: CandidateModelConfig[];
   }
 ): Promise<LiveCoachServiceOutcome> {
+  const immediateSafety = evaluateSafetySignal(params.message);
+  if (immediateSafety.requiresUpstreamSuppression) {
+    return {
+      ok: false,
+      status: 400,
+      code: 'CRISIS_SUPPRESSED',
+      error: immediateSafety.response ?? URGENT_SELF_HARM_RESPONSE,
+    };
+  }
+
+  const historyPolicy = evaluateConversationHistoryPolicy(
+    params.history,
+    params.message
+  );
+  if (historyPolicy.suppressedLocally) {
+    return {
+      ok: false,
+      status: 400,
+      code: 'CRISIS_FOLLOWUP_SUPPRESSED',
+      error: historyPolicy.crisisResponse ?? URGENT_SELF_HARM_RESPONSE,
+    };
+  }
+
   const generateFn: GenerateContentLike | null =
     deps?.generateContent ??
     (() => {
@@ -428,7 +450,10 @@ export async function generateLiveCoachReply(
     };
   }
 
-  const contents = normalizeConversationContents(params.history, params.message);
+  const contents = normalizeConversationContents(
+    historyPolicy.sanitizedHistory,
+    params.message
+  );
 
   try {
     const candidateModels = deps?.candidateModels ?? getOrderedCandidateModels();
@@ -501,7 +526,10 @@ export async function generateLiveCoachReply(
         if (!classified.retryableAcrossModels) {
           break;
         }
-        if (attempt < candidateModels.length - 1 && overallDeadlineMs - Date.now() > 2_000) {
+        if (
+          attempt < candidateModels.length - 1 &&
+          overallDeadlineMs - Date.now() > 2_000
+        ) {
           await new Promise((r) => setTimeout(r, 350));
           continue;
         }

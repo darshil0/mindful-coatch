@@ -90,9 +90,7 @@ export function HomeView({
         <div className="lg:col-span-5 rounded-2xl border border-[#E6E4DD] bg-white p-5 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-4">
-              <span className="text-xs font-medium text-[#5C6762]">
-                Primary focus
-              </span>
+              <span className="text-xs font-medium text-[#5C6762]">Primary focus</span>
               <button
                 type="button"
                 onClick={() => onNavigate('profile')}

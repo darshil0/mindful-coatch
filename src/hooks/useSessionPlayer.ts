@@ -25,9 +25,7 @@ interface UseSessionPlayerOptions {
  * Completion is scheduled cleanly via remaining-duration timeout + focus/visibility catch-up,
  * while smooth 250ms countdown UI ticking lives inside `ActiveSessionPlayer`.
  */
-export function useSessionPlayer({
-  onRecordSessionCompletion,
-}: UseSessionPlayerOptions) {
+export function useSessionPlayer({ onRecordSessionCompletion }: UseSessionPlayerOptions) {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const activeSession: GuidedSessionDefinition | undefined = selectedSessionId
     ? getSessionById(selectedSessionId)

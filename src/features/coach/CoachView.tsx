@@ -73,8 +73,8 @@ export function CoachView({
             {chat.effectiveMode === 'live'
               ? 'Live AI mode · Server-routed Gemini'
               : chat.needsLiveConsent
-              ? 'Live AI ready · Consent required (Demo Coach standby)'
-              : 'Demo Coach mode · Curated local responses (not live AI)'}
+                ? 'Live AI ready · Consent required (Demo Coach standby)'
+                : 'Demo Coach mode · Curated local responses (not live AI)'}
             {' · '}
             {preferences.saveChatHistory
               ? 'Chat saving: On (local)'
@@ -170,10 +170,10 @@ export function CoachView({
               </h2>
               <p>
                 Submitted chat messages, sanitized non-crisis turns in this thread, and
-                your selected wellness focus ({goalMeta.label}) are sent through our server
-                to an external AI provider (Google Gemini) to generate replies. Your
-                preferred name, daily tracking entries, and urgent safety turns are never
-                sent upstream. Avoid entering sensitive personal or medical details.
+                your selected wellness focus ({goalMeta.label}) are sent through our
+                server to an external AI provider (Google Gemini) to generate replies.
+                Your preferred name, daily tracking entries, and urgent safety turns are
+                never sent upstream. Avoid entering sensitive personal or medical details.
               </p>
               {chat.pendingConsentPrompt && (
                 <p className="rounded-lg border border-[#D0E0E8] bg-white/80 px-3 py-2 text-[#1E2421]">
@@ -203,7 +203,11 @@ export function CoachView({
       )}
 
       {chat.statusNotice && (
-        <p role="status" aria-live="polite" className="text-xs font-medium text-[#2F5D50]">
+        <p
+          role="status"
+          aria-live="polite"
+          className="text-xs font-medium text-[#2F5D50]"
+        >
           {chat.statusNotice}
         </p>
       )}

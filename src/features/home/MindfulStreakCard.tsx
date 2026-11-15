@@ -77,7 +77,10 @@ export function MindfulStreakCard({ streak, onNavigate }: MindfulStreakCardProps
       <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         <div className="flex items-center gap-2.5 rounded-xl bg-[#FAF9F6] px-3.5 py-2.5">
           {streak.todayHasEntry ? (
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-[#2F5D50]" aria-hidden="true" />
+            <CheckCircle2
+              className="h-4 w-4 shrink-0 text-[#2F5D50]"
+              aria-hidden="true"
+            />
           ) : (
             <Circle className="h-4 w-4 shrink-0 text-[#8D9691]" aria-hidden="true" />
           )}
@@ -96,7 +99,10 @@ export function MindfulStreakCard({ streak, onNavigate }: MindfulStreakCardProps
 
         <div className="flex items-center gap-2.5 rounded-xl bg-[#FAF9F6] px-3.5 py-2.5">
           {streak.todayHasSession ? (
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-[#2F5D50]" aria-hidden="true" />
+            <CheckCircle2
+              className="h-4 w-4 shrink-0 text-[#2F5D50]"
+              aria-hidden="true"
+            />
           ) : (
             <Circle className="h-4 w-4 shrink-0 text-[#8D9691]" aria-hidden="true" />
           )}

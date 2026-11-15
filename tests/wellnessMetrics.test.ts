@@ -621,6 +621,3 @@ test('computeWellnessStatistics filters invalid session dates and omits 0-day st
   assert.equal(fallbackStreak.totalActiveDays, 1);
   assert.equal(fallbackStreak.lastActiveDate, '2026-11-10');
 });
-
-
-

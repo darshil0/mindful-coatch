@@ -9,10 +9,7 @@ interface ProfileEditorCardProps {
   onUpdateProfile: (preferredName: string, primaryGoal: WellnessGoal) => void;
 }
 
-export function ProfileEditorCard({
-  profile,
-  onUpdateProfile,
-}: ProfileEditorCardProps) {
+export function ProfileEditorCard({ profile, onUpdateProfile }: ProfileEditorCardProps) {
   const [nameInput, setNameInput] = useState(profile.preferredName);
   const [selectedGoal, setSelectedGoal] = useState<WellnessGoal>(profile.primaryGoal);
   const [nameError, setNameError] = useState<string | null>(null);

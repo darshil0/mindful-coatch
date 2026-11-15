@@ -27,9 +27,7 @@ export function ReflectiveNotesCard({
     [entriesByDate, sortOrder]
   );
 
-  const visibleNotes = showAllNotes
-    ? notes
-    : notes.slice(0, DEFAULT_VISIBLE_COUNT);
+  const visibleNotes = showAllNotes ? notes : notes.slice(0, DEFAULT_VISIBLE_COUNT);
   const hasMoreNotes = notes.length > DEFAULT_VISIBLE_COUNT;
 
   return (
@@ -125,10 +123,7 @@ export function ReflectiveNotesCard({
                 <li key={item.date} className="py-4 first:pt-2 last:pb-1">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                     <div className="flex flex-wrap items-baseline gap-2 text-xs">
-                      <time
-                        dateTime={item.date}
-                        className="font-medium text-[#1E2421]"
-                      >
+                      <time dateTime={item.date} className="font-medium text-[#1E2421]">
                         {formatReadableDate(item.date)}
                       </time>
                       {isToday && (

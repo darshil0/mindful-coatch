@@ -137,7 +137,10 @@ export function createCoachRouter(deps?: CoachRouterDependencies): Router {
         return;
       }
 
-      const charCost = estimateIncomingCharCost(rawMessage, historySafety.sanitizedHistory);
+      const charCost = estimateIncomingCharCost(
+        rawMessage,
+        historySafety.sanitizedHistory
+      );
       const budgetCheck = globalBudget.consume(charCost);
       if (!budgetCheck.allowed) {
         res.set('Retry-After', String(budgetCheck.retryAfterSeconds));
