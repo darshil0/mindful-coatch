@@ -5,6 +5,37 @@ All notable changes to **Mindful Coach** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2026-11-15
+
+### Added
+
+- **Security headers & self-hosted assets**:
+  - Added `helmet` middleware in `server.ts` enforcing production Content Security Policy (`default-src 'self'`, `script-src 'self'`, `font-src 'self' data:`, `object-src 'none'`, configurable `CSP_FRAME_ANCESTORS`), `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, and opt-in `ENABLE_HSTS`.
+  - Replaced external Google Fonts requests in `index.html` with self-hosted `@fontsource/fraunces`, `@fontsource/plus-jakarta-sans`, and `@fontsource/jetbrains-mono` imported from `src/main.tsx`.
+- **UI resilience & crisis accessibility**:
+  - Added `AppErrorBoundary` (`src/components/ui/AppErrorBoundary.tsx`) around `<App />` inside `<React.StrictMode>` in `src/main.tsx` so render errors recover safely without wiping local records.
+  - Added focus-trapped, ESC-closable `CrisisResourcesDialog` (`src/components/ui/CrisisResourcesDialog.tsx`) accessible from both the Coach header and `AppShell` footer with international-neutral crisis contacts (`911`/`988`, `999`/`111`, `112`, `000`, `https://findahelpline.com`).
+- **Linting, formatting, CI & expanded test coverage**:
+  - Added `eslint.config.mjs`, `.prettierrc`, `.prettierignore`, and `.github/workflows/ci.yml` running Prettier check, ESLint, TypeScript `tsc --noEmit` (with `noUnusedLocals` & `noUnusedParameters`), full unit + JSDOM UI integration tests (`tests/uiAndHooks.test.tsx`), and Vite production build verification.
+  - Documented Apache License 2.0 in `LICENSE`, `.env.example`, and `README.md`.
+
+### Changed
+
+- **Explicit Live AI consent & multi-turn crisis isolation**:
+  - Versioned AI consent in `src/types/wellness.ts` (`CURRENT_AI_CONSENT_VERSION = 1`) and `src/services/storageService.ts`; `useCoachChat` and `CoachView` now hold pre-consent Home starter prompts and composer submissions behind an explicit `Review before enabling Live AI` gate rather than auto-acknowledging on send.
+  - Expanded `src/shared/coachSafety.ts` with Unicode NFKC normalization, typographic punctuation folding, zero-width character stripping, additional self-harm/medical phrasing variants, benign idiom exclusions, and `evaluateSafetySignal` category separation (`none` / `self_harm` / `medical_emergency` / `ambiguous_distress`).
+  - Added `evaluateConversationHistoryPolicy` and cumulative history character budgets (`MAX_COACH_TOTAL_HISTORY_CHARS`) across `useCoachChat` and `server/services/geminiCoachService.ts` to strip prior crisis turns and intercept short ambiguous crisis follow-ups locally before contacting Gemini.
+- **Server proxy, rate limiting & failover hardening**:
+  - Updated `resolveTrustProxyConfig` (`server/config.ts`) to default `trust proxy` to `false`, validate bounded hop counts/CIDRs/named ranges, and reject unsafe blanket `"true"`.
+  - Replaced LRU key eviction in `SlidingWindowRateLimiter` (`server/middleware/rateLimiter.ts`) with expired-entry pruning plus an overflow bucket so active client counters cannot be evicted via key churn; added `GlobalBudgetLimiter`, abort-safe `ConcurrencySemaphore`, and `Retry-After` propagation.
+  - Updated `classifyUpstreamError` (`server/services/geminiCoachService.ts`) to inspect structured HTTP status codes first, preserve highest-priority error classification across model failover, stop retries immediately on `400`/`401`/`403`, and drive `ThinkingLevel.LOW` via model capability config (`GEMINI_THINKING_MODELS`).
+  - Updated `server/middleware/errorHandler.ts` to guard `res.headersSent` and log structural metadata only; registered `jsonErrorHandler` strictly after routes in `server.ts`.
+- **Timer accuracy, storage recovery, reminders & client performance**:
+  - Updated `src/lib/sessionTimer.ts` with a `15`-minute completion grace window (`DEFAULT_SESSION_COMPLETION_GRACE_MS`) so abandoned sessions transition to `ended_early`, exact completion-instant timestamps, and `syncSessionTimer` enforcement inside `pauseSessionTimer` and `endSessionEarly`.
+  - Updated `src/services/storageService.ts` to recover `persistentHealthy` automatically after transient write errors, retain bounded corrupt-JSON samples in `STORAGE_KEYS.CORRUPT_BACKUP`, and support multi-tab conflict-safe merges (`mergeEntriesByUpdatedAt`, `mergeCompletedSessionsByRunId`) and deletion tombstones in `useWellnessStore`.
+  - Enabled overnight reminder schedules and separated morning session completions from evening reflection checks in `src/lib/reminders.ts` & `ReminderScheduleEditor.tsx`.
+  - Gated `?autostart=1` strictly behind `DEV || VITE_ENABLE_TEST_AUTOSTART === 'true'`, added History API route synchronization (`/`, `/sessions`, `/coach`, `/profile`), removed 4Hz root timer polling from `useSessionPlayer` (scoping countdown UI ticking to `ActiveSessionPlayer`), lazy-loaded secondary views and `WeeklyTrendChart` with manual Rollup vendor chunking in `vite.config.ts`, refined midnight greeting (`00:00–04:59`) and grapheme-based name validation, and added safe limited-Markdown rendering in `StructuredMessageBody.tsx`.
+
 ## [1.5.0] - 2026-11-14
 
 ### Added
