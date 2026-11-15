@@ -5,7 +5,7 @@ All notable changes to **Mindful Coach** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.5.0] - 2026-11-14
 
 ### Added
 - **Weekly progress report & shareable snippet export**:
@@ -31,10 +31,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `ReminderBannerCard` on `HomeView` and a shared `ReminderScheduleEditor` available on both `HomeView` and `ProfileView` Preferences, plus unit tests in `tests/reminders.test.ts` and `tests/storageService.test.ts`.
 
 ### Fixed
-- **Server & AI failover hardening**: Enabled `trust proxy` in `server.ts` so `coachRateLimiter` isolates client IPs behind reverse proxies, excluded `/assets/` from SPA HTML fallback, guarded non-object JSON/error payloads in `coachRoutes.ts` and `errorHandler.ts`, enforced strict `maxTrackedKeys` eviction in `SlidingWindowRateLimiter`, cleared prior transient errors before empty-response checks in `geminiCoachService.ts`, and aligned `401`/`unregistered callers` auth error mapping.
-- **Coach prompt & async lock race**: Updated `useCoachChat` to wait for `/api/coach/status` before auto-submitting Home starter prompts (preventing unnecessary `503` requests and false Live AI notice acknowledgement when unconfigured), unified demo and live turns under an abort-safe `try/finally` lock cleanup, and eliminated stale `chatMessages` closures in `useWellnessStore`.
-- **Entry normalization & calculation edge cases**: Unified `DailyEntry` sanitization via `normalizeDailyEntry` across `useWellnessStore` and `WellnessStorageStore`, guarded `shiftLocalDateKey`/`getPastLocalDateKeys` against invalid date keys, computed `averageEnergyScore` from the unrounded mean rating, and synced `HomeView` time-of-day greetings with `env.nowMinutes`.
-- **Accessibility, UI feedback & documentation**: Increased interactive toggle, reminder, and recovery controls to `44px` minimum touch targets, upgraded input placeholder contrast (`#5C6762`), respected reduced-motion settings in `DailyCheckInCard` scrolling, cleared stale save notices on field edits and date changes, removed duplicate reminder save announcements on `ProfileView`, updated `OnboardingFlow` Step 3 local-storage disclosures, and synced `metadata.json`, `index.html`, and `README.md`.
+- **Reminder fallback & schedule ordering**: Updated `evaluateReminderState` (`src/lib/reminders.ts`) so an evening slot no longer hides an unlogged, undismissed morning check-in when the evening session is completed or dismissed; enforced `morning < evening` ordering when both slots are enabled in `sanitizeReminderSchedule` and `ReminderScheduleEditor`; and validated `todayDateKey` in `pruneDismissalsToDate`.
+- **Guided session persistence across tabs**: Lifted `useSessionPlayer` (`src/hooks/useSessionPlayer.ts`) from `SessionsView` into `App.tsx` so active/paused session timers keep running cleanly when switching tabs and reset cleanly on local data deletion.
+- **Coach chat safety, failover & state cleanup**:
+  - Expanded `URGENT_HELP_PATTERNS` (`src/shared/coachSafety.ts`) for phrasing variants (such as `"cannot breathe"`, `"hurting myself"`, `"overdosed"`, `"don't want to live"`) and added immediate client-side crisis short-circuiting in `useCoachChat`.
+  - Updated `useCoachChat` (`src/hooks/useCoachChat.ts`) to abort in-flight Live AI requests when toggling to Demo Coach, replace the prior error-fallback bubble rather than stacking duplicates on **Retry with Live AI**, and avoid duplicate `acknowledgeAiNotice` calls.
+  - Reordered `/api/coach/chat` (`server/routes/coachRoutes.ts`) to run message validation and crisis interception before rate limiting, raised Express JSON limit to `64kb` (`server.ts`), and fixed `SlidingWindowRateLimiter` (`server/middleware/rateLimiter.ts`) to track true LRU eviction order.
+  - Updated `server/config.ts` and `server/services/geminiCoachService.ts` to use active Gemini candidate models (`gemini-4-hydrogen`, `gemini-3.1-flash-lite`), cap cumulative failover latency at `20s`, clear failed cached models, anchor status-code regexes with `\b`, and slice conversation history only after filtering malformed entries.
+- **Storage resilience & hook state hygiene**:
+  - Updated `WellnessStorageStore` (`src/services/storageService.ts`) to cache successful `localStorage` reads in `memoryFallback` (preventing mid-session `QuotaExceededError` from losing hydrated keys), reject arrays in `loadProfile`/`loadPreferences`, validate dates in `upsertDailyEntry`, and expire stale streaks in `loadMindfulStreak`.
+  - Fixed `useWellnessStore` (`src/hooks/useWellnessStore.ts`) to reset `chatMessagesRef` and `saveChatHistoryRef` on data deletion, strip `?autostart=1` on reset, avoid `localStorage` writes inside `setState` updaters, and honor `env.todayDateKey` across store mutations.
+- **Metrics, export & documentation polish**:
+  - Guarded invalid `todayDateKey` inputs and invalid session dates in `src/lib/wellnessMetrics.ts`, omitted `0-day streak` from `shareableSnippet`, deferred `URL.revokeObjectURL` on `.txt` downloads and eliminated clipboard overwrite on **Export snippet** open in `WeeklyProgressReportCard.tsx`, clarified per-day score averaging in `WeeklyWellnessScoreCard.tsx`, and synced `.env.example`, `README.md`, and `package.json`.
+- **Server & AI failover hardening**: Enabled `trust proxy` in `server.ts` so `coachRateLimiter` isolates client IPs behind reverse proxies, excluded `/assets/` from SPA HTML fallback, guarded non-object JSON/error payloads in `coachRoutes.ts` and `errorHandler.ts`, and enforced strict `maxTrackedKeys` eviction in `SlidingWindowRateLimiter`.
+- **Accessibility & UI feedback**: Upgraded `44px` minimum touch targets, input placeholder contrast (`#5C6762`), reduced-motion support, stale-notice clearing, Onboarding disclosures, and synced `metadata.json` and `index.html`.
 
 ## [1.4.0] - 2026-11-12
 

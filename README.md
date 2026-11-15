@@ -59,7 +59,7 @@ Then set a Gemini API key if you want live AI coaching enabled:
 GEMINI_API_KEY="your_server_side_gemini_api_key"
 ```
 
-If `GEMINI_API_KEY` is not set, the app will continue to work in demo mode with built-in wellness guidance. (`APP_URL` in `.env.example` is optional hosting metadata provided by deployment environments.)
+If `GEMINI_API_KEY` (or optional `GOOGLE_API_KEY` / `API_KEY` fallback) is not set, the app will continue to work in demo mode with built-in wellness guidance. (`APP_URL` in `.env.example` is optional hosting metadata provided by deployment environments.)
 
 ### 3. Run the app
 
