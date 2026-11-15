@@ -1,4 +1,3 @@
-import React from 'react';
 import type { WellnessStatistics } from '../../types/wellness';
 import { formatSleepMinutes } from '../../lib/wellnessMetrics';
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Bell, CalendarClock, ChevronDown, ChevronUp, Moon, Sun, X } from 'lucide-react';
 import type { ReminderSchedule, ReminderSlotId } from '../../types/wellness';
 import type { EvaluatedReminderState } from '../../lib/reminders';

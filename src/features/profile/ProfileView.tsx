@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import type {
   ReduceMotionSetting,
   ReminderSchedule,
@@ -125,3 +125,5 @@ export function ProfileView({
     </div>
   );
 }
+
+export default ProfileView;

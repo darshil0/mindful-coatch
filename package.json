@@ -3,26 +3,44 @@
   "private": true,
   "version": "1.5.0",
   "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build",
-    "start": "node server.ts",
+    "start": "NODE_ENV=production node server.ts",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts"
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "tsx --test tests/*.test.ts tests/*.test.tsx"
   },
   "dependencies": {
+    "@eslint/js": "^10.0.1",
+    "@fontsource/fraunces": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@fontsource/plus-jakarta-sans": "^5.3.0",
     "@google/genai": "^2.32.0",
     "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/react": "^16.3.3",
+    "@types/jsdom": "^30.0.0",
     "@vitejs/plugin-react": "^6.2.1",
     "dotenv": "^18.0.9",
+    "eslint": "^10.15.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "express": "^5.3.0",
+    "helmet": "^8.3.0",
+    "jsdom": "^31.0.1",
     "lucide-react": "^1.66.0",
     "motion": "^14.9.0",
+    "prettier": "^3.10.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "recharts": "^3.10.1",
+    "typescript-eslint": "^8.72.2",
     "vite": "^8.3.5"
   },
   "devDependencies": {
@@ -34,6 +52,6 @@
     "esbuild": "^0.28.2",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
-    "typescript": "^7.0.2"
+    "typescript": "^6.0.3"
   }
 }

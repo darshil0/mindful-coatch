@@ -1,4 +1,4 @@
-import React from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowLeft, CircleCheck, Pause, Play, Square } from 'lucide-react';
 import type {
   GuidedSessionDefinition,
@@ -38,11 +38,31 @@ export function ActiveSessionPlayer({
   onResume,
   onEndEarly,
 }: ActiveSessionPlayerProps) {
-  const elapsedMs = getSessionElapsedMs(timerState, nowMs);
+  const [liveClockMs, setLiveClockMs] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    if (timerState.status !== 'running') {
+      return;
+    }
+    const initId = window.setTimeout(() => {
+      setLiveClockMs(Date.now());
+    }, 0);
+    const id = window.setInterval(() => {
+      setLiveClockMs(Date.now());
+    }, 250);
+    return () => {
+      window.clearTimeout(initId);
+      window.clearInterval(id);
+    };
+  }, [timerState.status]);
+
+  const effectiveNowMs =
+    timerState.status === 'running' ? Math.max(liveClockMs, nowMs) : nowMs;
+  const elapsedMs = getSessionElapsedMs(timerState, effectiveNowMs);
   const remainingSeconds =
     timerState.status === 'idle'
       ? selectedDurationSec
-      : getSessionRemainingSeconds(timerState, nowMs);
+      : getSessionRemainingSeconds(timerState, effectiveNowMs);
   const progressPct =
     timerState.durationMs > 0
       ? Math.min(100, Math.round((elapsedMs / timerState.durationMs) * 100))

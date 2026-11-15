@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Check } from 'lucide-react';
 import type { UserProfile, WellnessGoal } from '../../types/wellness';
 import { GOAL_METADATA, WELLNESS_GOALS } from '../../data/goals';
@@ -18,10 +18,18 @@ export function ProfileEditorCard({
   const [nameError, setNameError] = useState<string | null>(null);
   const [profileSavedNotice, setProfileSavedNotice] = useState<string | null>(null);
 
-  useEffect(() => {
+  const [syncedProfile, setSyncedProfile] = useState({
+    name: profile.preferredName,
+    goal: profile.primaryGoal,
+  });
+  if (
+    syncedProfile.name !== profile.preferredName ||
+    syncedProfile.goal !== profile.primaryGoal
+  ) {
+    setSyncedProfile({ name: profile.preferredName, goal: profile.primaryGoal });
     setNameInput(profile.preferredName);
     setSelectedGoal(profile.primaryGoal);
-  }, [profile.preferredName, profile.primaryGoal]);
+  }
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();

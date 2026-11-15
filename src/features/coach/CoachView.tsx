@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { Info, Send, Trash2 } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Check, Info, LifeBuoy, Send, Trash2 } from 'lucide-react';
 import type {
   ChatMessage,
   NavDestination,
@@ -9,6 +9,7 @@ import type {
 import { getGoalMetadata } from '../../data/goals';
 import { MAX_COACH_MESSAGE_LENGTH } from '../../shared/coachSafety';
 import { useCoachChat } from '../../hooks/useCoachChat';
+import { CrisisResourcesDialog } from '../../components/ui/CrisisResourcesDialog';
 import { CoachMessageList } from './CoachMessageList';
 
 interface CoachViewProps {
@@ -40,6 +41,7 @@ export function CoachView({
 }: CoachViewProps) {
   const goalMeta = getGoalMetadata(primaryGoal);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [crisisDialogOpen, setCrisisDialogOpen] = useState(false);
 
   const chat = useCoachChat({
     primaryGoal,
@@ -70,6 +72,8 @@ export function CoachView({
           <p className="text-xs font-medium text-[#5C6762]">
             {chat.effectiveMode === 'live'
               ? 'Live AI mode · Server-routed Gemini'
+              : chat.needsLiveConsent
+              ? 'Live AI ready · Consent required (Demo Coach standby)'
               : 'Demo Coach mode · Curated local responses (not live AI)'}
             {' · '}
             {preferences.saveChatHistory
@@ -85,6 +89,15 @@ export function CoachView({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setCrisisDialogOpen(true)}
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-[#E5CACA] bg-[#FDF6F6] px-3.5 py-2 text-xs font-medium text-[#7F2323] transition-colors hover:bg-[#FAEAEA] whitespace-nowrap"
+          >
+            <LifeBuoy className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>Crisis resources</span>
+          </button>
+
           {chat.serverLiveAiAvailable === true && isOnline && (
             <button
               type="button"
@@ -111,12 +124,21 @@ export function CoachView({
         <strong className="text-[#1E2421]">Wellness scope:</strong> Mindful Coach offers
         general wellness education, not medical diagnosis or treatment. Speak with a
         qualified clinician for persistent or concerning symptoms. For emergencies or
-        self-harm risk, contact local emergency services immediately (such as 911 or 988
-        in the US/Canada).
+        self-harm risk, contact local emergency services immediately (such as 911/988 in
+        US/Canada, 111/999 in UK, 112 in EU, or{' '}
+        <a
+          href="https://findahelpline.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-[#2F5D50] underline underline-offset-4"
+        >
+          findahelpline.com
+        </a>
+        ).
       </p>
 
-      {/* Explicit Demo Coach Notice OR Pre-First-Message Live AI Notice */}
-      {chat.effectiveMode === 'demo' && (
+      {/* Explicit Demo Coach Notice OR Explicit Pre-Send Live AI Consent Gate */}
+      {chat.effectiveMode === 'demo' && !chat.needsLiveConsent && (
         <div
           role="status"
           className="flex items-start gap-3 rounded-xl border border-[#D8E2EB] bg-[#EDF3F7] px-4 py-3 text-xs leading-relaxed text-[#243B4D]"
@@ -131,20 +153,54 @@ export function CoachView({
         </div>
       )}
 
-      {chat.effectiveMode === 'live' &&
-        !preferences.acknowledgedAiNotice &&
-        messages.length === 0 && (
-          <div className="flex items-start gap-3 rounded-xl border border-[#D8E2EB] bg-[#EDF3F7] px-4 py-3 text-xs leading-relaxed text-[#243B4D]">
+      {chat.needsLiveConsent && (
+        <section
+          aria-labelledby="live-ai-consent-heading"
+          data-testid="live-ai-consent-gate"
+          className="rounded-xl border border-[#BFD3DD] bg-[#EDF3F7] p-4 sm:p-5 text-xs leading-relaxed text-[#243B4D]"
+        >
+          <div className="flex items-start gap-3">
             <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-            <div>
-              <strong>Before your first Live AI message:</strong> Submitted chat messages,
-              recent turns in this conversation, and your selected goal ({goalMeta.label})
-              are sent through our server to an external AI provider (Google Gemini) to
-              generate replies. Your preferred name and daily tracking entries are not sent
-              automatically. Avoid entering sensitive personal or medical details.
+            <div className="flex-1 space-y-2.5">
+              <h2
+                id="live-ai-consent-heading"
+                className="text-sm font-semibold text-[#182936]"
+              >
+                Review before enabling Live AI
+              </h2>
+              <p>
+                Submitted chat messages, sanitized non-crisis turns in this thread, and
+                your selected wellness focus ({goalMeta.label}) are sent through our server
+                to an external AI provider (Google Gemini) to generate replies. Your
+                preferred name, daily tracking entries, and urgent safety turns are never
+                sent upstream. Avoid entering sensitive personal or medical details.
+              </p>
+              {chat.pendingConsentPrompt && (
+                <p className="rounded-lg border border-[#D0E0E8] bg-white/80 px-3 py-2 text-[#1E2421]">
+                  <strong>Waiting to send:</strong> “{chat.pendingConsentPrompt}”
+                </p>
+              )}
+              <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={chat.acknowledgeAndEnableLiveAi}
+                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-[#2F5D50] px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-[#254B40] whitespace-nowrap"
+                >
+                  <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>Acknowledge &amp; enable Live AI</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={chat.switchToDemoCoach}
+                  className="inline-flex min-h-[44px] items-center rounded-xl border border-[#B8CAD4] bg-white px-4 py-2 text-xs font-medium text-[#243B4D] transition-colors hover:bg-[#F5F8FA] whitespace-nowrap"
+                >
+                  Use Demo Coach instead
+                </button>
+              </div>
             </div>
           </div>
-        )}
+        </section>
+      )}
 
       {chat.statusNotice && (
         <p role="status" aria-live="polite" className="text-xs font-medium text-[#2F5D50]">
@@ -242,6 +298,13 @@ export function CoachView({
           </div>
         </form>
       </div>
+
+      <CrisisResourcesDialog
+        open={crisisDialogOpen}
+        onClose={() => setCrisisDialogOpen(false)}
+      />
     </div>
   );
 }
+
+export default CoachView;

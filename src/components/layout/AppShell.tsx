@@ -1,6 +1,15 @@
-import React from 'react';
-import { House, Wind, MessageSquare, User, WifiOff, HardDrive } from 'lucide-react';
+import React, { useState } from 'react';
+import {
+  House,
+  Wind,
+  MessageSquare,
+  User,
+  WifiOff,
+  HardDrive,
+  LifeBuoy,
+} from 'lucide-react';
 import type { NavDestination } from '../../types/wellness';
+import { CrisisResourcesDialog } from '../ui/CrisisResourcesDialog';
 
 interface AppShellProps {
   activeDestination: NavDestination;
@@ -32,6 +41,8 @@ export function AppShell({
   isOnline,
   children,
 }: AppShellProps) {
+  const [crisisModalOpen, setCrisisModalOpen] = useState(false);
+
   return (
     <div className="min-h-dvh bg-[#FAF9F6] text-[#1E2421] flex flex-col pb-20 md:pb-12">
       <a
@@ -88,7 +99,7 @@ export function AppShell({
         </div>
       </header>
 
-      {/* Mobile Non-Sticky Brand Bar (keeps mobile fixed height strictly to the 64px bottom nav <= 15% cap) */}
+      {/* Mobile Non-Sticky Brand Bar */}
       <header className="md:hidden border-b border-[#E6E4DD] bg-[#FAF9F6] px-4 py-3">
         <div className="flex items-center justify-between gap-4">
           <span className="font-display text-lg font-medium tracking-tight text-[#1E2421] whitespace-nowrap">
@@ -137,7 +148,24 @@ export function AppShell({
         {children}
       </main>
 
-      {/* Mobile Compact Bottom Navigation (h-16 = 64px <= 15% of mobile viewport) */}
+      {/* Calm Persistent Wellness Scope & Urgent Resources Footer */}
+      <footer className="mx-auto w-full max-w-6xl border-t border-[#E6E4DD] px-4 py-4 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-[#5C6762]">
+          <p>
+            Educational wellness support only — not medical care or emergency response.
+          </p>
+          <button
+            type="button"
+            onClick={() => setCrisisModalOpen(true)}
+            className="inline-flex min-h-[44px] items-center gap-1.5 font-medium text-[#7F2323] underline underline-offset-4 hover:text-[#5C1717] whitespace-nowrap"
+          >
+            <LifeBuoy className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>Urgent support resources</span>
+          </button>
+        </div>
+      </footer>
+
+      {/* Mobile Compact Bottom Navigation */}
       <nav
         aria-label="Primary mobile"
         className="md:hidden fixed bottom-0 left-0 right-0 z-40 h-16 border-t border-[#E6E4DD] bg-white/95 backdrop-blur-md"
@@ -172,6 +200,11 @@ export function AppShell({
           })}
         </div>
       </nav>
+
+      <CrisisResourcesDialog
+        open={crisisModalOpen}
+        onClose={() => setCrisisModalOpen(false)}
+      />
     </div>
   );
 }

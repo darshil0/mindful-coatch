@@ -1,4 +1,3 @@
-import React from 'react';
 import { CheckCircle2, Circle, Flame } from 'lucide-react';
 import type { MindfulStreakState, NavDestination } from '../../types/wellness';
 

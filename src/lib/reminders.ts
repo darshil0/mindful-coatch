@@ -1,4 +1,5 @@
 import type {
+  CompletedSessionRecord,
   ReminderDismissalsByDate,
   ReminderSchedule,
   ReminderSlotId,
@@ -60,6 +61,10 @@ export function formatTimeLabel(timeStr: string): string {
   return `${hours12}:${String(mins).padStart(2, '0')} ${period}`;
 }
 
+/**
+ * Sanitizes reminder schedule while allowing night-shift / overnight schedules
+ * (for example, morning wake check-in at 18:00 and evening wind-down at 06:00).
+ */
 export function sanitizeReminderSchedule(raw: unknown): ReminderSchedule {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     return {
@@ -83,7 +88,7 @@ export function sanitizeReminderSchedule(raw: unknown): ReminderSchedule {
     typeof morningRaw.enabled === 'boolean'
       ? morningRaw.enabled
       : DEFAULT_REMINDER_SCHEDULE.morning.enabled;
-  let morningTime = isValidTimeString(morningRaw.time)
+  const morningTime = isValidTimeString(morningRaw.time)
     ? morningRaw.time
     : DEFAULT_REMINDER_SCHEDULE.morning.time;
 
@@ -91,22 +96,9 @@ export function sanitizeReminderSchedule(raw: unknown): ReminderSchedule {
     typeof eveningRaw.enabled === 'boolean'
       ? eveningRaw.enabled
       : DEFAULT_REMINDER_SCHEDULE.evening.enabled;
-  let eveningTime = isValidTimeString(eveningRaw.time)
+  const eveningTime = isValidTimeString(eveningRaw.time)
     ? eveningRaw.time
     : DEFAULT_REMINDER_SCHEDULE.evening.time;
-
-  const mMins = parseTimeToMinutes(morningTime);
-  const eMins = parseTimeToMinutes(eveningTime);
-  if (
-    morningEnabled &&
-    eveningEnabled &&
-    mMins !== null &&
-    eMins !== null &&
-    mMins >= eMins
-  ) {
-    morningTime = DEFAULT_REMINDER_SCHEDULE.morning.time;
-    eveningTime = DEFAULT_REMINDER_SCHEDULE.evening.time;
-  }
 
   return {
     morning: {
@@ -135,6 +127,30 @@ export function pruneDismissalsToDate(
 }
 
 /**
+ * Determines whether today's completed guided sessions include one within the
+ * evening reminder window (at least within 90 minutes before `eveningMinutes` or after it),
+ * so a morning breathing session does not suppress an evening wind-down prompt.
+ */
+export function hasCompletedEveningWindowSession(
+  completedSessions: CompletedSessionRecord[],
+  todayDateKey: string,
+  eveningMinutes: number
+): boolean {
+  const windowStartMinutes = Math.max(0, eveningMinutes - 90);
+  for (const session of completedSessions) {
+    if (session.date !== todayDateKey) continue;
+    const completedAtDate = new Date(session.completedAt);
+    if (Number.isNaN(completedAtDate.getTime())) continue;
+    const sessionMins =
+      completedAtDate.getHours() * 60 + completedAtDate.getMinutes();
+    if (sessionMins >= windowStartMinutes) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Determines whether a gentle morning check-in or evening reflection reminder
  * should currently surface on the Home dashboard, and provides a calm status summary
  * when neither reminder needs attention.
@@ -145,6 +161,7 @@ export function evaluateReminderState(params: {
   nowMinutes: number;
   todayHasEntry: boolean;
   todayHasSession: boolean;
+  completedSessions?: CompletedSessionRecord[];
   dismissals: ReminderDismissalsByDate;
 }): EvaluatedReminderState {
   const {
@@ -153,6 +170,7 @@ export function evaluateReminderState(params: {
     nowMinutes,
     todayHasEntry,
     todayHasSession,
+    completedSessions,
     dismissals,
   } = params;
 
@@ -172,7 +190,11 @@ export function evaluateReminderState(params: {
     }
   }
 
-  enabledSlots.sort((a, b) => a.minutes - b.minutes);
+  // Sort chronologically by minute-of-day (break exact ties with morning before evening)
+  enabledSlots.sort((a, b) => {
+    if (a.minutes !== b.minutes) return a.minutes - b.minutes;
+    return a.id === 'morning' ? -1 : 1;
+  });
 
   if (enabledSlots.length === 0) {
     return {
@@ -181,15 +203,25 @@ export function evaluateReminderState(params: {
     };
   }
 
-  // Evaluate started slots in reverse chronological order so an active evening reminder
-  // still falls back to an uncompleted, undismissed morning check-in if evening is done or dismissed.
+  const eveningSlot = enabledSlots.find((s) => s.id === 'evening');
+  const todayHasEveningSession =
+    completedSessions !== undefined && eveningSlot
+      ? hasCompletedEveningWindowSession(
+          completedSessions,
+          todayDateKey,
+          eveningSlot.minutes
+        )
+      : todayHasSession;
+
+  // Evaluate started slots in reverse chronological order so the most recent due slot takes priority,
+  // falling back to an earlier uncompleted slot if the later one was done or dismissed.
   const startedSlots = enabledSlots.filter((slot) => slot.minutes <= nowMinutes);
   const nextUpcomingSlot =
     enabledSlots.find((slot) => slot.minutes > nowMinutes) ?? null;
 
   for (let i = startedSlots.length - 1; i >= 0; i -= 1) {
     const slot = startedSlots[i];
-    if (slot.id === 'evening' && !todayHasSession && !dismissedToday.evening) {
+    if (slot.id === 'evening' && !todayHasEveningSession && !dismissedToday.evening) {
       const scheduledLabel = formatTimeLabel(slot.time);
       return {
         dueReminder: {
@@ -234,8 +266,8 @@ export function evaluateReminderState(params: {
     parts.push('Morning reminder dismissed for today');
   }
 
-  if (todayHasSession) {
-    parts.push('Guided session completed');
+  if (todayHasEveningSession) {
+    parts.push('Evening reflection session completed');
   } else if (eveningStarted && dismissedToday.evening) {
     parts.push('Evening reminder dismissed for today');
   }

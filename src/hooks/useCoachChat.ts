@@ -1,20 +1,29 @@
-import { useEffect, useRef, useState } from 'react';
-import type {
-  ChatMessage,
-  UserPreferences,
-  WellnessGoal,
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  CURRENT_AI_CONSENT_VERSION,
+  type ChatMessage,
+  type UserPreferences,
+  type WellnessGoal,
 } from '../types/wellness';
 import { buildCuratedDemoResponse } from '../data/demoCoachResponses';
 import {
-  detectUrgentSafetyConcern,
+  evaluateSafetySignal,
+  isCannedSafetyResponse,
   MAX_COACH_HISTORY_TURNS,
   MAX_COACH_MESSAGE_LENGTH,
-  URGENT_SAFETY_RESPONSE,
+  URGENT_SELF_HARM_RESPONSE,
 } from '../shared/coachSafety';
 import {
   fetchCoachStatus,
   sendCoachChatMessage,
 } from '../services/coachApiClient';
+
+export function hasValidAiConsent(preferences: UserPreferences): boolean {
+  return (
+    preferences.acknowledgedAiNotice === true &&
+    preferences.aiConsentVersion === CURRENT_AI_CONSENT_VERSION
+  );
+}
 
 interface UseCoachChatOptions {
   primaryGoal: WellnessGoal;
@@ -42,18 +51,22 @@ export function useCoachChat({
   onAcknowledgeAiNotice,
 }: UseCoachChatOptions) {
   const [inputValue, setInputValue] = useState('');
-  const [serverLiveAiAvailable, setServerLiveAiAvailable] = useState<boolean | null>(
-    null
-  );
+  const [rawServerLiveAiAvailable, setRawServerLiveAiAvailable] = useState<
+    boolean | null
+  >(null);
   const [preferDemoMode, setPreferDemoMode] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [failedTurnText, setFailedTurnText] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
+  const [pendingConsentPrompt, setPendingConsentPrompt] = useState<string | null>(null);
 
   const submittingLockRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const generationRef = useRef(0);
+
+  const aiConsentGranted = hasValidAiConsent(preferences);
+  const serverLiveAiAvailable = isOnline ? rawServerLiveAiAvailable : false;
 
   useEffect(() => {
     return () => {
@@ -65,13 +78,12 @@ export function useCoachChat({
   // Check server AI configuration status on mount and when online status changes
   useEffect(() => {
     if (!isOnline) {
-      setServerLiveAiAvailable(false);
       return;
     }
     const statusController = new AbortController();
     fetchCoachStatus(statusController.signal).then((available) => {
       if (!statusController.signal.aborted) {
-        setServerLiveAiAvailable(available);
+        setRawServerLiveAiAvailable(available);
       }
     });
     return () => {
@@ -79,88 +91,243 @@ export function useCoachChat({
     };
   }, [isOnline]);
 
+  // Live AI can only be active when online, configured, user hasn't picked Demo, AND status is known
+  const liveAiEligible = isOnline && serverLiveAiAvailable === true && !preferDemoMode;
+  const needsLiveConsent = liveAiEligible && !aiConsentGranted;
+
   const effectiveMode: 'live' | 'demo' =
-    isOnline && serverLiveAiAvailable !== false && !preferDemoMode ? 'live' : 'demo';
+    liveAiEligible && aiConsentGranted ? 'live' : 'demo';
 
-  const sendTurn = async (rawText: string, appendUserBubble: boolean) => {
-    const trimmed = rawText.trim();
-    if (!trimmed || submittingLockRef.current) return;
+  const sendTurn = useCallback(
+    async (
+      rawText: string,
+      appendUserBubble: boolean,
+      options?: { bypassConsentCheck?: boolean; forceDemo?: boolean }
+    ) => {
+      const trimmed = rawText.trim();
+      if (!trimmed || submittingLockRef.current) return;
 
-    if (trimmed.length > MAX_COACH_MESSAGE_LENGTH) {
-      setErrorMessage('Please keep your message under 1,200 characters.');
-      return;
-    }
-
-    generationRef.current += 1;
-    const turnGen = generationRef.current;
-    abortControllerRef.current?.abort();
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    submittingLockRef.current = true;
-    setIsSending(true);
-    setErrorMessage(null);
-    setStatusNotice(null);
-
-    const nowIso = new Date().toISOString();
-    const userMsg: ChatMessage = {
-      id: `u-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      role: 'user',
-      content: trimmed,
-      createdAt: nowIso,
-      mode: effectiveMode,
-    };
-
-    try {
-      if (appendUserBubble) {
-        setFailedTurnText(null);
-        onAppendMessages([userMsg]);
-        setInputValue('');
-      }
-
-      if (detectUrgentSafetyConcern(trimmed)) {
-        const crisisMsg: ChatMessage = {
-          id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          role: 'assistant',
-          content: URGENT_SAFETY_RESPONSE,
-          createdAt: new Date().toISOString(),
-          mode: 'demo',
-          isCrisisNotice: true,
-        };
-        if (appendUserBubble) {
-          onAppendMessages([crisisMsg]);
-        } else {
-          onReplaceLastFallbackMessage(crisisMsg);
-        }
-        setFailedTurnText(null);
+      if (trimmed.length > MAX_COACH_MESSAGE_LENGTH) {
+        setErrorMessage('Please keep your message under 1,200 characters.');
         return;
       }
 
-      if (effectiveMode === 'demo') {
-        await new Promise<void>((resolve) => {
-          const timer = window.setTimeout(() => {
-            controller.signal.removeEventListener('abort', onAbort);
-            resolve();
-          }, 260);
-          const onAbort = () => {
-            window.clearTimeout(timer);
-            resolve();
+      // Immediate safety check FIRST — never requires consent or upstream AI
+      const immediateSafety = evaluateSafetySignal(trimmed);
+      const useDemo =
+        options?.forceDemo === true ||
+        preferDemoMode ||
+        !isOnline ||
+        serverLiveAiAvailable === false;
+
+      if (
+        !useDemo &&
+        !immediateSafety.requiresUpstreamSuppression &&
+        !aiConsentGranted &&
+        !options?.bypassConsentCheck
+      ) {
+        setPendingConsentPrompt(trimmed);
+        setStatusNotice(
+          'Please acknowledge the external Live AI notice above before sending messages to Google Gemini, or switch to Demo Coach.'
+        );
+        return;
+      }
+
+      generationRef.current += 1;
+      const turnGen = generationRef.current;
+      abortControllerRef.current?.abort();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      submittingLockRef.current = true;
+      setIsSending(true);
+      setErrorMessage(null);
+      setStatusNotice(null);
+
+      const activeSendMode: 'live' | 'demo' = useDemo ? 'demo' : 'live';
+      const nowIso = new Date().toISOString();
+      const userMsg: ChatMessage = {
+        id: `u-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        role: 'user',
+        content: trimmed,
+        createdAt: nowIso,
+        mode: activeSendMode,
+      };
+
+      try {
+        if (appendUserBubble) {
+          setFailedTurnText(null);
+          onAppendMessages([userMsg]);
+          setInputValue('');
+        }
+
+        if (immediateSafety.requiresUpstreamSuppression && immediateSafety.response) {
+          const crisisMsg: ChatMessage = {
+            id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            role: 'assistant',
+            content: immediateSafety.response,
+            createdAt: new Date().toISOString(),
+            mode: 'demo',
+            isCrisisNotice: true,
           };
-          if (controller.signal.aborted) {
-            onAbort();
+          if (appendUserBubble) {
+            onAppendMessages([crisisMsg]);
           } else {
-            controller.signal.addEventListener('abort', onAbort, { once: true });
+            onReplaceLastFallbackMessage(crisisMsg);
           }
-        });
-        if (controller.signal.aborted || turnGen !== generationRef.current) return;
-        const demo = buildCuratedDemoResponse(trimmed, primaryGoal);
+          setFailedTurnText(null);
+          return;
+        }
+
+        if (activeSendMode === 'demo' || serverLiveAiAvailable === null) {
+          await new Promise<void>((resolve) => {
+            const timer = window.setTimeout(() => {
+              controller.signal.removeEventListener('abort', onAbort);
+              resolve();
+            }, 260);
+            const onAbort = () => {
+              window.clearTimeout(timer);
+              resolve();
+            };
+            if (controller.signal.aborted) {
+              onAbort();
+            } else {
+              controller.signal.addEventListener('abort', onAbort, { once: true });
+            }
+          });
+          if (controller.signal.aborted || turnGen !== generationRef.current) return;
+          const demo = buildCuratedDemoResponse(trimmed, primaryGoal);
+          const assistantMsg: ChatMessage = {
+            id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            role: 'assistant',
+            content: demo.content,
+            createdAt: new Date().toISOString(),
+            mode: 'demo',
+            isCrisisNotice: demo.isCrisisNotice,
+          };
+          if (appendUserBubble) {
+            onAppendMessages([assistantMsg]);
+          } else {
+            onReplaceLastFallbackMessage(assistantMsg);
+          }
+          setFailedTurnText(null);
+          return;
+        }
+
+        let historySource = messages;
+        if (!appendUserBubble) {
+          let endIdx = messages.length;
+          if (endIdx > 0 && messages[endIdx - 1]?.isFallbackFromError) {
+            endIdx -= 1;
+          }
+          if (
+            endIdx > 0 &&
+            messages[endIdx - 1]?.role === 'user' &&
+            messages[endIdx - 1]?.content === trimmed
+          ) {
+            endIdx -= 1;
+          }
+          historySource = messages.slice(0, endIdx);
+        }
+
+        // M2: Strip any prior urgent safety turns & canned crisis responses before leaving the browser
+        const slicedHistory = historySource.slice(-MAX_COACH_HISTORY_TURNS);
+        const sanitizedClientHistory: { role: 'user' | 'assistant'; content: string }[] =
+          [];
+        let skipNextCrisisNotice = false;
+        for (const m of slicedHistory) {
+          if (m.role === 'user') {
+            if (evaluateSafetySignal(m.content).requiresUpstreamSuppression) {
+              skipNextCrisisNotice = true;
+              continue;
+            }
+            skipNextCrisisNotice = false;
+            sanitizedClientHistory.push({ role: 'user', content: m.content });
+          } else {
+            if (
+              m.isCrisisNotice ||
+              isCannedSafetyResponse(m.content) ||
+              skipNextCrisisNotice
+            ) {
+              skipNextCrisisNotice = false;
+              continue;
+            }
+            sanitizedClientHistory.push({ role: 'assistant', content: m.content });
+          }
+        }
+
+        // If the most recent exchange before a short ambiguous prompt was a crisis notice, handle locally
+        const latestMessage = slicedHistory[slicedHistory.length - 1];
+        if (
+          latestMessage?.isCrisisNotice &&
+          trimmed.split(/\s+/).length <= 8 &&
+          trimmed.length <= 90
+        ) {
+          const crisisMsg: ChatMessage = {
+            id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            role: 'assistant',
+            content: URGENT_SELF_HARM_RESPONSE,
+            createdAt: new Date().toISOString(),
+            mode: 'demo',
+            isCrisisNotice: true,
+          };
+          if (appendUserBubble) {
+            onAppendMessages([crisisMsg]);
+          } else {
+            onReplaceLastFallbackMessage(crisisMsg);
+          }
+          setFailedTurnText(null);
+          return;
+        }
+
+        const result = await sendCoachChatMessage(
+          {
+            message: trimmed,
+            goal: primaryGoal,
+            history: sanitizedClientHistory,
+          },
+          controller.signal
+        );
+
+        if (turnGen !== generationRef.current) return;
+
+        if (!result.ok) {
+          if (result.unconfigured) {
+            setRawServerLiveAiAvailable(false);
+          }
+
+          if (appendUserBubble) {
+            const fallback = buildCuratedDemoResponse(trimmed, primaryGoal);
+            onAppendMessages([
+              {
+                id: `a-${Date.now()}-fallback`,
+                role: 'assistant',
+                content: fallback.content,
+                createdAt: new Date().toISOString(),
+                mode: 'demo',
+                isCrisisNotice: fallback.isCrisisNotice,
+                isFallbackFromError: true,
+              },
+            ]);
+          }
+
+          setErrorMessage(
+            result.unconfigured
+              ? 'Live AI credentials are not configured on the server, so this question was answered using Mindful Coach’s built-in wellness guide (not live AI).'
+              : `${result.error} Answered above using Mindful Coach’s built-in wellness guide (not live AI)—you can also retry Live AI below.`
+          );
+          setFailedTurnText(result.unconfigured ? null : trimmed);
+          return;
+        }
+
+        setRawServerLiveAiAvailable(true);
         const assistantMsg: ChatMessage = {
           id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           role: 'assistant',
-          content: demo.content,
+          content: result.data.reply,
           createdAt: new Date().toISOString(),
-          mode: 'demo',
-          isCrisisNotice: demo.isCrisisNotice,
+          mode: result.data.mode,
+          isCrisisNotice: result.data.isCrisisNotice,
         };
         if (appendUserBubble) {
           onAppendMessages([assistantMsg]);
@@ -168,54 +335,13 @@ export function useCoachChat({
           onReplaceLastFallbackMessage(assistantMsg);
         }
         setFailedTurnText(null);
-        return;
-      }
-
-      let didAcknowledgeThisTurn = preferences.acknowledgedAiNotice;
-      if (serverLiveAiAvailable === true && !didAcknowledgeThisTurn) {
-        onAcknowledgeAiNotice();
-        didAcknowledgeThisTurn = true;
-      }
-
-      let historySource = messages;
-      if (!appendUserBubble) {
-        let endIdx = messages.length;
-        if (endIdx > 0 && messages[endIdx - 1]?.isFallbackFromError) {
-          endIdx -= 1;
-        }
+      } catch (err: unknown) {
         if (
-          endIdx > 0 &&
-          messages[endIdx - 1]?.role === 'user' &&
-          messages[endIdx - 1]?.content === trimmed
+          turnGen !== generationRef.current ||
+          (err instanceof DOMException && err.name === 'AbortError')
         ) {
-          endIdx -= 1;
+          return;
         }
-        historySource = messages.slice(0, endIdx);
-      }
-
-      const recentHistory = historySource
-        .slice(-MAX_COACH_HISTORY_TURNS)
-        .map((m) => ({
-          role: m.role,
-          content: m.content,
-        }));
-
-      const result = await sendCoachChatMessage(
-        {
-          message: trimmed,
-          goal: primaryGoal,
-          history: recentHistory,
-        },
-        controller.signal
-      );
-
-      if (turnGen !== generationRef.current) return;
-
-      if (!result.ok) {
-        if (result.unconfigured) {
-          setServerLiveAiAvailable(false);
-        }
-
         if (appendUserBubble) {
           const fallback = buildCuratedDemoResponse(trimmed, primaryGoal);
           onAppendMessages([
@@ -230,80 +356,83 @@ export function useCoachChat({
             },
           ]);
         }
-
         setErrorMessage(
-          result.unconfigured
-            ? 'Live AI credentials are not configured on the server, so this question was answered using Mindful Coach’s built-in wellness guide (not live AI).'
-            : `${result.error} Answered above using Mindful Coach’s built-in wellness guide (not live AI)—you can also retry Live AI below.`
+          'Could not reach Live AI over the network, so this question was answered using Mindful Coach’s built-in wellness guide (not live AI). You can retry Live AI when ready.'
         );
-        setFailedTurnText(result.unconfigured ? null : trimmed);
-        return;
+        setFailedTurnText(trimmed);
+      } finally {
+        if (turnGen === generationRef.current) {
+          setIsSending(false);
+          submittingLockRef.current = false;
+        }
       }
-
-      setServerLiveAiAvailable(true);
-      if (!didAcknowledgeThisTurn) {
-        onAcknowledgeAiNotice();
-      }
-      const assistantMsg: ChatMessage = {
-        id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        role: 'assistant',
-        content: result.data.reply,
-        createdAt: new Date().toISOString(),
-        mode: result.data.mode,
-        isCrisisNotice: result.data.isCrisisNotice,
-      };
-      if (appendUserBubble) {
-        onAppendMessages([assistantMsg]);
-      } else {
-        onReplaceLastFallbackMessage(assistantMsg);
-      }
-      setFailedTurnText(null);
-    } catch (err: unknown) {
-      if (
-        turnGen !== generationRef.current ||
-        (err instanceof DOMException && err.name === 'AbortError')
-      ) {
-        return;
-      }
-      if (appendUserBubble) {
-        const fallback = buildCuratedDemoResponse(trimmed, primaryGoal);
-        onAppendMessages([
-          {
-            id: `a-${Date.now()}-fallback`,
-            role: 'assistant',
-            content: fallback.content,
-            createdAt: new Date().toISOString(),
-            mode: 'demo',
-            isCrisisNotice: fallback.isCrisisNotice,
-            isFallbackFromError: true,
-          },
-        ]);
-      }
-      setErrorMessage(
-        'Could not reach Live AI over the network, so this question was answered using Mindful Coach’s built-in wellness guide (not live AI). You can retry Live AI when ready.'
-      );
-      setFailedTurnText(trimmed);
-    } finally {
-      if (turnGen === generationRef.current) {
-        setIsSending(false);
-        submittingLockRef.current = false;
-      }
-    }
-  };
+    },
+    [
+      preferDemoMode,
+      isOnline,
+      serverLiveAiAvailable,
+      aiConsentGranted,
+      onAppendMessages,
+      onReplaceLastFallbackMessage,
+      primaryGoal,
+      messages,
+    ]
+  );
 
   const sendTurnRef = useRef(sendTurn);
-  sendTurnRef.current = sendTurn;
+  useEffect(() => {
+    sendTurnRef.current = sendTurn;
+  }, [sendTurn]);
 
-  // Submit starter question selected from the Home dashboard once mode status resolves
+  // Handle Home starter question cleanly without bypassing Live AI consent
   useEffect(() => {
     if (!draftPrompt) return;
     if (isOnline && serverLiveAiAvailable === null && !preferDemoMode) {
       return;
     }
-    const promptToSend = draftPrompt;
-    onClearDraftPrompt();
-    void sendTurnRef.current(promptToSend, true);
-  }, [draftPrompt, isOnline, serverLiveAiAvailable, preferDemoMode, onClearDraftPrompt]);
+    const promptToHandle = draftPrompt;
+    const timer = window.setTimeout(() => {
+      onClearDraftPrompt();
+
+      const safety = evaluateSafetySignal(promptToHandle);
+      if (
+        !safety.requiresUpstreamSuppression &&
+        isOnline &&
+        serverLiveAiAvailable === true &&
+        !preferDemoMode &&
+        !aiConsentGranted
+      ) {
+        setPendingConsentPrompt(promptToHandle);
+        setInputValue(promptToHandle);
+        setStatusNotice(
+          'Review the external Live AI notice above before sending your selected question, or choose Demo Coach.'
+        );
+        return;
+      }
+
+      void sendTurnRef.current(promptToHandle, true);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    draftPrompt,
+    isOnline,
+    serverLiveAiAvailable,
+    preferDemoMode,
+    aiConsentGranted,
+    onClearDraftPrompt,
+  ]);
+
+  const acknowledgeAndEnableLiveAi = () => {
+    onAcknowledgeAiNotice();
+    setPreferDemoMode(false);
+    setStatusNotice('Live AI enabled. Your upcoming messages will route through Gemini.');
+    if (pendingConsentPrompt) {
+      const queued = pendingConsentPrompt;
+      setPendingConsentPrompt(null);
+      void sendTurnRef.current(queued, true, { bypassConsentCheck: true });
+    }
+  };
 
   const retryFailedTurn = () => {
     if (!failedTurnText || isSending) return;
@@ -323,6 +452,11 @@ export function useCoachChat({
     setPreferDemoMode(true);
     setErrorMessage(null);
     setFailedTurnText(null);
+    if (pendingConsentPrompt) {
+      const queued = pendingConsentPrompt;
+      setPendingConsentPrompt(null);
+      void sendTurnRef.current(queued, true, { forceDemo: true });
+    }
   };
 
   const toggleDemoPreference = () => {
@@ -341,6 +475,7 @@ export function useCoachChat({
     cancelInFlightTurn();
     onClearChatHistory();
     setFailedTurnText(null);
+    setPendingConsentPrompt(null);
     setErrorMessage(null);
     setStatusNotice('Chat history cleared.');
   };
@@ -350,11 +485,16 @@ export function useCoachChat({
     setInputValue,
     serverLiveAiAvailable,
     preferDemoMode,
+    liveAiEligible,
+    needsLiveConsent,
+    aiConsentGranted,
+    pendingConsentPrompt,
     effectiveMode,
     isSending,
     failedTurnText,
     errorMessage,
     statusNotice,
+    acknowledgeAndEnableLiveAi,
     sendTurn,
     retryFailedTurn,
     switchToDemoCoach,

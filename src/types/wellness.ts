@@ -182,10 +182,13 @@ export interface ChatMessage {
   isFallbackFromError?: boolean;
 }
 
+export const CURRENT_AI_CONSENT_VERSION = 1;
+
 export interface UserPreferences {
   saveChatHistory: boolean;
   reduceMotion: ReduceMotionSetting;
   acknowledgedAiNotice: boolean;
+  aiConsentVersion?: number | null;
 }
 
 export type ReminderSlotId = 'morning' | 'evening';

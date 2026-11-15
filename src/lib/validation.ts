@@ -5,15 +5,32 @@ export type ValidationResult<T> =
   | { valid: true; value: T }
   | { valid: false; error: string };
 
+export const MAX_PREFERRED_NAME_GRAPHEMES = 50;
+const MAX_PREFERRED_NAME_CODE_UNITS = 200;
+
+export function countGraphemes(text: string): number {
+  if (!text) return 0;
+  if (typeof Intl !== 'undefined' && typeof Intl.Segmenter === 'function') {
+    const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+    let count = 0;
+    for (const _segment of segmenter.segment(text)) {
+      count += 1;
+    }
+    return count;
+  }
+  return Array.from(text).length;
+}
+
 export function isValidWellnessGoal(value: unknown): value is WellnessGoal {
   return typeof value === 'string' && (WELLNESS_GOALS as readonly string[]).includes(value);
 }
 
 /**
- * Validates and trims the user's preferred name.
- * Strips ASCII control characters and collapses repeated whitespace.
+ * Validates and trims the user's preferred name using visual grapheme count
+ * rather than raw UTF-16 code units, while still bounding extreme inputs.
  */
 export function validatePreferredName(raw: string): ValidationResult<string> {
+  // eslint-disable-next-line no-control-regex
   const cleaned = raw.replace(/[\u0000-\u001F\u007F]/g, '').replace(/\s+/g, ' ').trim();
   if (cleaned.length === 0) {
     return {
@@ -21,7 +38,11 @@ export function validatePreferredName(raw: string): ValidationResult<string> {
       error: 'Please enter the name you would like us to call you.',
     };
   }
-  if (cleaned.length > 50) {
+  const graphemeLength = countGraphemes(cleaned);
+  if (
+    graphemeLength > MAX_PREFERRED_NAME_GRAPHEMES ||
+    cleaned.length > MAX_PREFERRED_NAME_CODE_UNITS
+  ) {
     return {
       valid: false,
       error: 'Preferred name must be 50 characters or fewer.',
@@ -138,6 +159,7 @@ export const MAX_REFLECTIVE_NOTE_LENGTH = 500;
  */
 export function validateReflectiveNote(raw: string): ValidationResult<string | null> {
   const normalized = raw
+    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
     .replace(/\r\n/g, '\n')
     .trim();
@@ -146,7 +168,13 @@ export function validateReflectiveNote(raw: string): ValidationResult<string | n
     return { valid: true, value: null };
   }
 
-  if (normalized.length > MAX_REFLECTIVE_NOTE_LENGTH) {
+  if (countGraphemes(normalized) > MAX_REFLECTIVE_NOTE_LENGTH && normalized.length > MAX_REFLECTIVE_NOTE_LENGTH) {
+    return {
+      valid: false,
+      error: `Reflective note must be ${MAX_REFLECTIVE_NOTE_LENGTH} characters or fewer.`,
+    };
+  }
+  if (countGraphemes(normalized) > MAX_REFLECTIVE_NOTE_LENGTH) {
     return {
       valid: false,
       error: `Reflective note must be ${MAX_REFLECTIVE_NOTE_LENGTH} characters or fewer.`,
@@ -189,6 +217,7 @@ export function normalizeDailyEntry(entry: DailyEntry): DailyEntry {
     reflectiveNote = check.valid
       ? check.value
       : entry.reflectiveNote
+          // eslint-disable-next-line no-control-regex
           .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
           .replace(/\r\n/g, '\n')
           .trim()

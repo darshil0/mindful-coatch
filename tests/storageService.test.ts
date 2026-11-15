@@ -1,10 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  mergeCompletedSessionsByRunId,
+  mergeEntriesByUpdatedAt,
   STORAGE_KEYS,
   type StorageLike,
   WellnessStorageStore,
 } from '../src/services/storageService';
+import { CURRENT_AI_CONSENT_VERSION } from '../src/types/wellness';
 
 class MockStorage implements StorageLike {
   public data = new Map<string, string>();
@@ -26,7 +29,7 @@ class MockStorage implements StorageLike {
   }
 }
 
-test('storage persists profile & daily entries by date, recovers from malformed JSON, and honors chat privacy', () => {
+test('storage persists profile & daily entries by date, recovers from malformed JSON with bounded backup, and honors consent versioning & chat privacy (M1/L6)', () => {
   const mock = new MockStorage();
   const store = new WellnessStorageStore(mock);
 
@@ -67,19 +70,36 @@ test('storage persists profile & daily entries by date, recovers from malformed 
   store.saveChatMessages(sampleChat, false);
   assert.equal(mock.getItem(STORAGE_KEYS.CHAT), null);
 
-  // Enabling saveChatHistory persists chat; turning it back off deletes persisted chat
+  // Legacy unversioned acknowledgedAiNotice resets consent safely (M1)
+  mock.setItem(
+    STORAGE_KEYS.PREFERENCES,
+    JSON.stringify({
+      saveChatHistory: true,
+      reduceMotion: 'system',
+      acknowledgedAiNotice: true,
+    })
+  );
+  const upgradedPrefs = new WellnessStorageStore(mock).loadPreferences();
+  assert.equal(upgradedPrefs.saveChatHistory, true);
+  assert.equal(upgradedPrefs.acknowledgedAiNotice, false);
+  assert.equal(upgradedPrefs.aiConsentVersion, null);
+
+  // Versioned consent persists cleanly; turning off saveChatHistory deletes persisted chat
   store.savePreferences({
     saveChatHistory: true,
     reduceMotion: 'system',
     acknowledgedAiNotice: true,
+    aiConsentVersion: CURRENT_AI_CONSENT_VERSION,
   });
   store.saveChatMessages(sampleChat, true);
   assert.notEqual(mock.getItem(STORAGE_KEYS.CHAT), null);
+  assert.equal(new WellnessStorageStore(mock).loadPreferences().acknowledgedAiNotice, true);
 
   store.savePreferences({
     saveChatHistory: false,
     reduceMotion: 'system',
     acknowledgedAiNotice: true,
+    aiConsentVersion: CURRENT_AI_CONSENT_VERSION,
   });
   assert.equal(mock.getItem(STORAGE_KEYS.CHAT), null);
 
@@ -102,17 +122,21 @@ test('storage persists profile & daily entries by date, recovers from malformed 
   assert.equal(store.loadEntries()['2026-11-02'], undefined);
   assert.equal(store.loadEntries()['2026-11-01']?.steps, 4200);
 
-  // Corrupt JSON in entries safely recovers without throwing
-  mock.setItem(STORAGE_KEYS.ENTRIES, '{bad json');
+  // Corrupt JSON in entries safely recovers AND stores bounded corrupt backup (L6)
+  mock.setItem(STORAGE_KEYS.ENTRIES, '{bad json sample');
   const recovered = new WellnessStorageStore(mock).hydrate();
   assert.deepEqual(recovered.entriesByDate, {});
   assert.equal(recovered.profile?.preferredName, 'Maya');
+  const backupRaw = mock.getItem(STORAGE_KEYS.CORRUPT_BACKUP);
+  assert.ok(backupRaw);
+  assert.match(backupRaw, /\{bad json sample/);
 
-  // Delete all local data clears everything
+  // Delete all local data clears data AND writes deletion tombstone in META (M6)
   store.deleteAllLocalData();
   const afterDelete = new WellnessStorageStore(mock).hydrate();
   assert.equal(afterDelete.profile, null);
   assert.deepEqual(afterDelete.entriesByDate, {});
+  assert.ok(store.getDeletedAtEpochMs() > 0);
 });
 
 test('storage stays usable in memory when browser storage is unavailable', () => {
@@ -133,7 +157,6 @@ test('storage persists and reconciles Mindful Streaks from daily entries and com
   const mock = new MockStorage();
   const store = new WellnessStorageStore(mock);
 
-  // Day 1 entry + Day 2 session -> 2-day Mindful Streak persisted in STORAGE_KEYS.STREAK
   store.upsertDailyEntry(
     {
       date: '2026-11-11',
@@ -167,7 +190,6 @@ test('storage persists and reconciles Mindful Streaks from daily entries and com
   assert.equal(persistedStreak.currentStreak, 2);
   assert.equal(persistedStreak.lastActiveDate, '2026-11-12');
 
-  // Corrupt streak JSON safely recalculates from entries + sessions on hydrate
   mock.setItem(STORAGE_KEYS.STREAK, '{broken');
   assert.equal(
     new WellnessStorageStore(mock).loadMindfulStreak('2026-11-12').currentStreak,
@@ -206,12 +228,10 @@ test('storage persists reminder schedule, prunes stale dismissals on date change
     '2026-11-12': { morning: true },
   });
 
-  // On a new calendar day, previous day's dismissals are automatically pruned
   const hydratedNextDay = new WellnessStorageStore(mock).hydrate('2026-11-13');
   assert.deepEqual(hydratedNextDay.reminderDismissals, {});
   assert.equal(hydratedNextDay.reminderSchedule.morning.time, '07:45');
 
-  // Corrupt JSON recovers safely to defaults
   mock.setItem(STORAGE_KEYS.REMINDERS, '{not valid');
   const recovered = new WellnessStorageStore(mock).loadReminders('2026-11-13');
   assert.equal(recovered.schedule.morning.time, '08:30');
@@ -244,7 +264,6 @@ test('storage persists reflectiveNote entries, supports note-only check-ins, and
   );
   assert.equal(hydrated.mindfulStreak.currentStreak, 1);
 
-  // Clearing the reflective note when no other metrics exist removes the entry cleanly
   store.upsertDailyEntry(
     {
       date: '2026-11-11',
@@ -259,7 +278,7 @@ test('storage persists reflectiveNote entries, supports note-only check-ins, and
   assert.equal(store.loadEntries()['2026-11-11'], undefined);
 });
 
-test('storage caches hydrated keys before mid-session quota errors and expires stale streaks on direct load', () => {
+test('storage retries and recovers after transient write errors (M5) and merges multi-tab data cleanly (M6)', () => {
   const mock = new MockStorage();
   mock.setItem(
     STORAGE_KEYS.PROFILE,
@@ -285,20 +304,98 @@ test('storage caches hydrated keys before mid-session quota errors and expires s
   );
 
   const store = new WellnessStorageStore(mock);
-  // Direct loadMindfulStreak expires stale streak from 9 days ago
   assert.equal(store.loadMindfulStreak('2026-11-14').currentStreak, 0);
 
-  // Hydrate caches profile into memoryFallback
   store.hydrate('2026-11-14');
-  // Trigger mid-session write failure
+  // Transient write failure
   mock.failWrites = true;
   store.savePreferences({
     saveChatHistory: false,
     reduceMotion: 'on',
     acknowledgedAiNotice: false,
+    aiConsentVersion: null,
   });
   assert.equal(store.isPersistentAvailable(), false);
-  // Previously hydrated profile remains readable via memoryFallback
+  assert.ok(store.getNotice());
+  // Newly written value & hydrated profile remain readable via memory fallback
+  assert.equal(store.loadPreferences().reduceMotion, 'on');
   assert.equal(store.loadProfile()?.preferredName, 'Sam');
-});
 
+  // Once storage recovers, next write heals persistentHealthy & clears notice (M5)
+  mock.failWrites = false;
+  store.savePreferences({
+    saveChatHistory: false,
+    reduceMotion: 'off',
+    acknowledgedAiNotice: false,
+    aiConsentVersion: null,
+  });
+  assert.equal(store.isPersistentAvailable(), true);
+  assert.equal(store.getNotice(), null);
+  assert.equal(new WellnessStorageStore(mock).loadPreferences().reduceMotion, 'off');
+
+  // Conflict-safe merge helpers (M6)
+  const mergedEntries = mergeEntriesByUpdatedAt(
+    {
+      '2026-11-14': {
+        date: '2026-11-14',
+        energyRating: 8,
+        steps: null,
+        sleepMinutes: null,
+        updatedAt: '2026-11-14T12:00:00.000Z',
+      },
+    },
+    {
+      '2026-11-14': {
+        date: '2026-11-14',
+        energyRating: 5,
+        steps: 3000,
+        sleepMinutes: null,
+        updatedAt: '2026-11-14T09:00:00.000Z', // older -> should lose to newer local entry
+      },
+      '2026-11-13': {
+        date: '2026-11-13',
+        energyRating: 7,
+        steps: null,
+        sleepMinutes: null,
+        updatedAt: '2026-11-13T10:00:00.000Z',
+      },
+    }
+  );
+  assert.equal(mergedEntries['2026-11-14']?.energyRating, 8);
+  assert.equal(mergedEntries['2026-11-13']?.energyRating, 7);
+
+  const mergedSessions = mergeCompletedSessionsByRunId(
+    [
+      {
+        completionId: 'c1',
+        runId: 'run-1',
+        sessionId: 'mindfulness',
+        title: 'Mindfulness',
+        durationSeconds: 180,
+        completedAt: '2026-11-14T10:00:00.000Z',
+        date: '2026-11-14',
+      },
+    ],
+    [
+      {
+        completionId: 'c1',
+        runId: 'run-1',
+        sessionId: 'mindfulness',
+        title: 'Mindfulness',
+        durationSeconds: 180,
+        completedAt: '2026-11-14T10:00:00.000Z',
+        date: '2026-11-14',
+      },
+      {
+        completionId: 'c2',
+        runId: 'run-2',
+        sessionId: 'gentle-breathing',
+        title: 'Gentle breathing',
+        durationSeconds: 120,
+        completedAt: '2026-11-14T18:00:00.000Z',
+        date: '2026-11-14',
+      },
+    ]
+  );
+  assert.equal(mergedSessions.length, 2);
+});

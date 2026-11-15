@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { LoaderCircle, RotateCcw, TriangleAlert } from 'lucide-react';
 import type { ChatMessage } from '../../types/wellness';
 import { StructuredMessageBody } from './StructuredMessageBody';

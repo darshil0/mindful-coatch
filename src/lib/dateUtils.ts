@@ -6,6 +6,14 @@
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
+function resolveLocale(explicitLocale?: string): string | undefined {
+  if (explicitLocale) return explicitLocale;
+  if (typeof navigator !== 'undefined' && navigator.language) {
+    return navigator.language;
+  }
+  return undefined;
+}
+
 export function isValidDateKey(value: unknown): value is string {
   if (typeof value !== 'string' || !DATE_KEY_PATTERN.test(value)) {
     return false;
@@ -78,20 +86,20 @@ export function getPastLocalDateKeys(
   return keys;
 }
 
-export function formatReadableDate(dateKey: string): string {
+export function formatReadableDate(dateKey: string, locale?: string): string {
   if (!isValidDateKey(dateKey)) return dateKey;
   const dt = parseLocalDateKey(dateKey);
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(resolveLocale(locale), {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
   }).format(dt);
 }
 
-export function formatShortDayLabel(dateKey: string): string {
+export function formatShortDayLabel(dateKey: string, locale?: string): string {
   if (!isValidDateKey(dateKey)) return dateKey;
   const dt = parseLocalDateKey(dateKey);
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(resolveLocale(locale), {
     weekday: 'short',
   }).format(dt);
 }
@@ -102,8 +110,16 @@ export function formatDayNumber(dateKey: string): string {
   return String(dt.getDate());
 }
 
+/**
+ * Returns a calm greeting calibrated to local wall-clock hour.
+ * Midnight–04:59 returns `'Good evening'` rather than `'Good morning'`.
+ */
 export function getTimeOfDayGreeting(hour: number = new Date().getHours()): string {
-  if (hour < 12) return 'Good morning';
-  if (hour < 18) return 'Good afternoon';
+  const normalizedHour = Number.isFinite(hour)
+    ? ((Math.floor(hour) % 24) + 24) % 24
+    : 12;
+  if (normalizedHour < 5) return 'Good evening';
+  if (normalizedHour < 12) return 'Good morning';
+  if (normalizedHour < 18) return 'Good afternoon';
   return 'Good evening';
 }

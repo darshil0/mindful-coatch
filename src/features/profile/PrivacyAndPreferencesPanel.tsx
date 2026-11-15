@@ -1,4 +1,3 @@
-import React from 'react';
 import { Shield, Trash2 } from 'lucide-react';
 import type {
   ReduceMotionSetting,

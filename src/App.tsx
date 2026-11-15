@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import type { NavDestination, WellnessGoal } from './types/wellness';
 import { useWellnessStore } from './hooks/useWellnessStore';
 import { useEnvironmentState } from './hooks/useEnvironmentState';
@@ -13,39 +13,87 @@ import { evaluateReminderState } from './lib/reminders';
 import { AppShell } from './components/layout/AppShell';
 import { OnboardingFlow } from './features/onboarding/OnboardingFlow';
 import { HomeView } from './features/home/HomeView';
-import { SessionsView } from './features/sessions/SessionsView';
-import { CoachView } from './features/coach/CoachView';
-import { ProfileView } from './features/profile/ProfileView';
+
+const SessionsView = lazy(() => import('./features/sessions/SessionsView'));
+const CoachView = lazy(() => import('./features/coach/CoachView'));
+const ProfileView = lazy(() => import('./features/profile/ProfileView'));
+
+const DESTINATION_TO_PATH: Record<NavDestination, string> = {
+  home: '/',
+  sessions: '/sessions',
+  coach: '/coach',
+  profile: '/profile',
+};
+
+export function resolveDestinationFromPathname(pathname: string): NavDestination {
+  const normalized = pathname.toLowerCase().replace(/\/+$/, '') || '/';
+  if (normalized === '/sessions') return 'sessions';
+  if (normalized === '/coach') return 'coach';
+  if (normalized === '/profile') return 'profile';
+  return 'home';
+}
+
+function ViewLoadingFallback() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="mx-auto max-w-4xl rounded-2xl border border-[#E6E4DD] bg-white p-8 text-center text-sm text-[#5C6762]"
+    >
+      Loading view…
+    </div>
+  );
+}
 
 export default function App() {
   const store = useWellnessStore();
+  const { recordSessionCompletion, computeStatistics } = store;
   const env = useEnvironmentState(store.preferences.reduceMotion);
 
-  const [activeDestination, setActiveDestination] = useState<NavDestination>('home');
+  const [activeDestination, setActiveDestination] = useState<NavDestination>(() =>
+    typeof window !== 'undefined'
+      ? resolveDestinationFromPathname(window.location.pathname)
+      : 'home'
+  );
   const [focusCheckInSignal, setFocusCheckInSignal] = useState<number>(0);
-  const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
   const [draftCoachPrompt, setDraftCoachPrompt] = useState<string | null>(null);
 
-  const handleClearInitialSession = useCallback(() => {
-    setPendingSessionId(null);
+  // Sync client-side destination with browser History API (`/` `/sessions` `/coach` `/profile`, L9)
+  const navigateTo = useCallback((destination: NavDestination) => {
+    setActiveDestination(destination);
+    if (typeof window !== 'undefined') {
+      const targetPath = DESTINATION_TO_PATH[destination];
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState({ destination }, '', targetPath);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handlePopState = () => {
+      setActiveDestination(resolveDestinationFromPathname(window.location.pathname));
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
   }, []);
 
   const handleRecordSessionCompletion = useCallback(
-    (record: Parameters<typeof store.recordSessionCompletion>[0]) => {
-      store.recordSessionCompletion(record, env.todayDateKey);
+    (record: Parameters<typeof recordSessionCompletion>[0]) => {
+      recordSessionCompletion(record, env.todayDateKey);
     },
-    [store.recordSessionCompletion, env.todayDateKey]
+    [recordSessionCompletion, env.todayDateKey]
   );
 
   const sessionPlayer = useSessionPlayer({
-    initialSessionId: pendingSessionId,
-    onClearInitialSession: handleClearInitialSession,
     onRecordSessionCompletion: handleRecordSessionCompletion,
   });
 
   const statistics = useMemo(
-    () => store.computeStatistics(env.todayDateKey),
-    [store.computeStatistics, env.todayDateKey]
+    () => computeStatistics(env.todayDateKey),
+    [computeStatistics, env.todayDateKey]
   );
 
   const evaluatedReminder = useMemo(
@@ -56,11 +104,13 @@ export default function App() {
         nowMinutes: env.nowMinutes,
         todayHasEntry: statistics.mindfulStreak.todayHasEntry,
         todayHasSession: statistics.mindfulStreak.todayHasSession,
+        completedSessions: store.completedSessions,
         dismissals: store.reminderDismissals,
       }),
     [
       store.reminderSchedule,
       store.reminderDismissals,
+      store.completedSessions,
       env.todayDateKey,
       env.nowMinutes,
       statistics.mindfulStreak.todayHasEntry,
@@ -76,15 +126,14 @@ export default function App() {
 
   const handleCompleteOnboarding = (preferredName: string, primaryGoal: WellnessGoal) => {
     store.completeOnboarding(preferredName, primaryGoal);
-    setActiveDestination('home');
+    navigateTo('home');
   };
 
   const handleDeleteAllLocalData = () => {
     sessionPlayer.resetPlayer();
     store.deleteAllLocalData();
-    setPendingSessionId(null);
     setDraftCoachPrompt(null);
-    setActiveDestination('home');
+    navigateTo('home');
   };
 
   if (!store.profile) {
@@ -100,9 +149,9 @@ export default function App() {
   return (
     <AppShell
       activeDestination={activeDestination}
-      onNavigate={setActiveDestination}
+      onNavigate={navigateTo}
       onQuickCheckInAction={() => {
-        setActiveDestination('home');
+        navigateTo('home');
         setFocusCheckInSignal((n) => n + 1);
       }}
       storageAvailable={store.storageAvailable}
@@ -130,59 +179,65 @@ export default function App() {
           onSaveReminderSchedule={(next) =>
             store.updateReminderSchedule(next, env.todayDateKey)
           }
-          onNavigate={setActiveDestination}
+          onNavigate={navigateTo}
           onOpenSession={(sessionId) => {
-            setPendingSessionId(sessionId);
-            setActiveDestination('sessions');
+            sessionPlayer.openSessionById(sessionId);
+            navigateTo('sessions');
           }}
           onAskCoachQuestion={(question) => {
             setDraftCoachPrompt(question);
-            setActiveDestination('coach');
+            navigateTo('coach');
           }}
         />
       )}
 
       {activeDestination === 'sessions' && (
-        <SessionsView
-          primaryGoal={store.profile.primaryGoal}
-          effectiveReducedMotion={env.effectiveReducedMotion}
-          completedSessions={store.completedSessions}
-          player={sessionPlayer}
-        />
+        <Suspense fallback={<ViewLoadingFallback />}>
+          <SessionsView
+            primaryGoal={store.profile.primaryGoal}
+            effectiveReducedMotion={env.effectiveReducedMotion}
+            completedSessions={store.completedSessions}
+            player={sessionPlayer}
+          />
+        </Suspense>
       )}
 
       {activeDestination === 'coach' && (
-        <CoachView
-          primaryGoal={store.profile.primaryGoal}
-          messages={store.chatMessages}
-          preferences={store.preferences}
-          isOnline={env.isOnline}
-          draftPrompt={draftCoachPrompt}
-          onClearDraftPrompt={() => setDraftCoachPrompt(null)}
-          onAppendMessages={store.appendChatMessages}
-          onReplaceLastFallbackMessage={store.replaceLastFallbackMessage}
-          onClearChatHistory={store.clearChatHistory}
-          onAcknowledgeAiNotice={store.acknowledgeAiNotice}
-          onNavigate={setActiveDestination}
-        />
+        <Suspense fallback={<ViewLoadingFallback />}>
+          <CoachView
+            primaryGoal={store.profile.primaryGoal}
+            messages={store.chatMessages}
+            preferences={store.preferences}
+            isOnline={env.isOnline}
+            draftPrompt={draftCoachPrompt}
+            onClearDraftPrompt={() => setDraftCoachPrompt(null)}
+            onAppendMessages={store.appendChatMessages}
+            onReplaceLastFallbackMessage={store.replaceLastFallbackMessage}
+            onClearChatHistory={store.clearChatHistory}
+            onAcknowledgeAiNotice={store.acknowledgeAiNotice}
+            onNavigate={navigateTo}
+          />
+        </Suspense>
       )}
 
       {activeDestination === 'profile' && (
-        <ProfileView
-          profile={store.profile}
-          preferences={store.preferences}
-          reminderSchedule={store.reminderSchedule}
-          osPrefersReducedMotion={env.osPrefersReducedMotion}
-          statistics={statistics}
-          hasAnyChatMessages={store.chatMessages.length > 0}
-          onUpdateProfile={store.updateProfile}
-          onUpdatePreferences={store.updatePreferences}
-          onUpdateReminderSchedule={(next) =>
-            store.updateReminderSchedule(next, env.todayDateKey)
-          }
-          onClearChatHistory={store.clearChatHistory}
-          onDeleteAllLocalData={handleDeleteAllLocalData}
-        />
+        <Suspense fallback={<ViewLoadingFallback />}>
+          <ProfileView
+            profile={store.profile}
+            preferences={store.preferences}
+            reminderSchedule={store.reminderSchedule}
+            osPrefersReducedMotion={env.osPrefersReducedMotion}
+            statistics={statistics}
+            hasAnyChatMessages={store.chatMessages.length > 0}
+            onUpdateProfile={store.updateProfile}
+            onUpdatePreferences={store.updatePreferences}
+            onUpdateReminderSchedule={(next) =>
+              store.updateReminderSchedule(next, env.todayDateKey)
+            }
+            onClearChatHistory={store.clearChatHistory}
+            onDeleteAllLocalData={handleDeleteAllLocalData}
+          />
+        </Suspense>
       )}
     </AppShell>
   );

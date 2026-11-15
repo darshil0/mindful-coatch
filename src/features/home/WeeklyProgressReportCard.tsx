@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Check,
   ChevronDown,
@@ -79,9 +79,10 @@ export function WeeklyProgressReportCard({
   );
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [showSnippetExport, setShowSnippetExport] = useState(false);
-  const [snippetStatus, setSnippetStatus] = useState<
-    'idle' | 'copied' | 'shared' | 'failed'
-  >('idle');
+  const [snippetStatusState, setSnippetStatusState] = useState<{
+    status: 'idle' | 'copied' | 'shared' | 'failed';
+    forSnippet: string;
+  }>({ status: 'idle', forSnippet: '' });
   const [expandedInsightIds, setExpandedInsightIds] = useState<Record<string, boolean>>({
     'overall-score': true,
   });
@@ -148,18 +149,20 @@ export function WeeklyProgressReportCard({
   const canUseWebShare =
     typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
-  useEffect(() => {
-    setSnippetStatus('idle');
-  }, [activeSnippet]);
+  const snippetStatus =
+    snippetStatusState.forSnippet === activeSnippet ? snippetStatusState.status : 'idle';
 
   const handleToggleSnippetExport = () => {
     setShowSnippetExport((prev) => !prev);
-    setSnippetStatus('idle');
+    setSnippetStatusState({ status: 'idle', forSnippet: activeSnippet });
   };
 
   const handleCopySnippet = async () => {
     const ok = await copyTextToClipboard(activeSnippet);
-    setSnippetStatus(ok ? 'copied' : 'failed');
+    setSnippetStatusState({
+      status: ok ? 'copied' : 'failed',
+      forSnippet: activeSnippet,
+    });
   };
 
   const handleNativeShareSnippet = async () => {
@@ -169,13 +172,16 @@ export function WeeklyProgressReportCard({
         title: 'Mindful Coach Weekly Summary',
         text: activeSnippet,
       });
-      setSnippetStatus('shared');
+      setSnippetStatusState({ status: 'shared', forSnippet: activeSnippet });
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         return;
       }
       const ok = await copyTextToClipboard(activeSnippet);
-      setSnippetStatus(ok ? 'copied' : 'failed');
+      setSnippetStatusState({
+        status: ok ? 'copied' : 'failed',
+        forSnippet: activeSnippet,
+      });
     }
   };
 
@@ -317,7 +323,7 @@ export function WeeklyProgressReportCard({
                 type="button"
                 onClick={() => {
                   setShowSnippetExport(false);
-                  setSnippetStatus('idle');
+                  setSnippetStatusState({ status: 'idle', forSnippet: activeSnippet });
                 }}
                 className="min-h-[44px] px-2 text-xs font-medium text-[#5C6762] underline underline-offset-4 hover:text-[#1E2421] whitespace-nowrap"
               >

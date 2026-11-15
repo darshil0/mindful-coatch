@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Bell, Check } from 'lucide-react';
 import type { ReminderSchedule } from '../../types/wellness';
-import { isValidTimeString, parseTimeToMinutes } from '../../lib/reminders';
+import { isValidTimeString } from '../../lib/reminders';
 
 interface ReminderScheduleEditorProps {
   schedule: ReminderSchedule;
@@ -38,13 +38,15 @@ export function ReminderScheduleEditor({
   const [timeError, setTimeError] = useState<string | null>(null);
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
 
-  useEffect(() => {
+  const [syncedSchedule, setSyncedSchedule] = useState(schedule);
+  if (syncedSchedule !== schedule) {
+    setSyncedSchedule(schedule);
     setMorningEnabled(schedule.morning.enabled);
     setMorningTime(schedule.morning.time);
     setEveningEnabled(schedule.evening.enabled);
     setEveningTime(schedule.evening.time);
     setBrowserNotifications(schedule.browserNotifications);
-  }, [schedule]);
+  }
 
   const handleToggleBrowserAlerts = async (checked: boolean) => {
     setSavedNotice(null);
@@ -91,15 +93,6 @@ export function ReminderScheduleEditor({
     ) {
       setTimeError('Please choose valid local reminder times (HH:MM).');
       return;
-    }
-
-    if (morningEnabled && eveningEnabled) {
-      const mMins = parseTimeToMinutes(morningTime);
-      const eMins = parseTimeToMinutes(eveningTime);
-      if (mMins !== null && eMins !== null && mMins >= eMins) {
-        setTimeError('Morning check-in time must be earlier than evening reflection time.');
-        return;
-      }
     }
 
     setTimeError(null);

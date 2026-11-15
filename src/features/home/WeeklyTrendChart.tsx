@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Bar,
   CartesianGrid,
@@ -193,3 +192,5 @@ export function WeeklyTrendChart({
     </div>
   );
 }
+
+export default WeeklyTrendChart;

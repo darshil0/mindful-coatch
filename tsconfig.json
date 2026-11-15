@@ -5,6 +5,8 @@
     "useDefineForClassFields": false,
     "module": "ESNext",
     "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "types": ["vite/client", "node"],
     "lib": [
       "ES2022",
@@ -17,11 +19,6 @@
     "moduleDetection": "force",
     "allowJs": true,
     "jsx": "react-jsx",
-    "paths": {
-      "@/*": [
-        "./*"
-      ]
-    },
     "allowImportingTsExtensions": true,
     "noEmit": true
   },

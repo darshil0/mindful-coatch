@@ -60,7 +60,15 @@ export function DailyCheckInCard({
   const checkInSectionRef = useRef<HTMLElement>(null);
 
   // Sync form inputs whenever todayDateKey or todayEntry updates externally
-  useEffect(() => {
+  const [syncedCheckIn, setSyncedCheckIn] = useState({
+    dateKey: todayDateKey,
+    entry: todayEntry,
+  });
+  if (syncedCheckIn.dateKey !== todayDateKey || syncedCheckIn.entry !== todayEntry) {
+    if (syncedCheckIn.dateKey !== todayDateKey) {
+      setSaveAnnouncement(null);
+    }
+    setSyncedCheckIn({ dateKey: todayDateKey, entry: todayEntry });
     setSelectedEnergy(todayEntry?.energyRating ?? null);
     setStepsInput(
       todayEntry?.steps !== null && todayEntry?.steps !== undefined
@@ -72,12 +80,7 @@ export function DailyCheckInCard({
     setSleepMinutesInput(sleepParts.minutes);
     setReflectiveNoteInput(todayEntry?.reflectiveNote ?? '');
     setFormErrors({});
-  }, [todayDateKey, todayEntry]);
-
-  // Clear saved status banner when the calendar day rolls over
-  useEffect(() => {
-    setSaveAnnouncement(null);
-  }, [todayDateKey]);
+  }
 
   useEffect(() => {
     if (focusCheckInSignal > 0 && checkInSectionRef.current) {

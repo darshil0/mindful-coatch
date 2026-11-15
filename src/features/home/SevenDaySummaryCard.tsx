@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import type { WellnessStatistics } from '../../types/wellness';
 import { formatReadableDate } from '../../lib/dateUtils';
 import { formatSleepMinutes } from '../../lib/wellnessMetrics';
-import { WeeklyTrendChart } from './WeeklyTrendChart';
+
+const WeeklyTrendChart = lazy(() => import('./WeeklyTrendChart'));
 
 interface SevenDaySummaryCardProps {
   statistics: WellnessStatistics;
@@ -83,13 +84,21 @@ export function SevenDaySummaryCard({
           </p>
 
           {summaryViewMode === 'visual' && (
-            <WeeklyTrendChart
-              sevenDayWindow={statistics.sevenDayWindow}
-              averageEnergyScore={statistics.averageEnergy7d.averageScore}
-              energyCount={statistics.averageEnergy7d.includedCount}
-              completedSessionsInLast7={statistics.completedSessionsInLast7}
-              effectiveReducedMotion={effectiveReducedMotion}
-            />
+            <Suspense
+              fallback={
+                <div className="h-56 w-full rounded-xl bg-[#FAF9F6] flex items-center justify-center text-xs text-[#5C6762]">
+                  Loading trend chart…
+                </div>
+              }
+            >
+              <WeeklyTrendChart
+                sevenDayWindow={statistics.sevenDayWindow}
+                averageEnergyScore={statistics.averageEnergy7d.averageScore}
+                energyCount={statistics.averageEnergy7d.includedCount}
+                completedSessionsInLast7={statistics.completedSessionsInLast7}
+                effectiveReducedMotion={effectiveReducedMotion}
+              />
+            </Suspense>
           )}
 
           {/* Accessible Text Table (always present in DOM for screen readers; visible when 'table' selected) */}

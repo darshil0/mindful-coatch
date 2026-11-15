@@ -16,6 +16,7 @@ export type CoachChatApiResult =
       error: string;
       code: string;
       unconfigured: boolean;
+      retryAfterSeconds?: number;
     };
 
 export async function fetchCoachStatus(signal?: AbortSignal): Promise<boolean> {
@@ -42,6 +43,12 @@ export async function sendCoachChatMessage(
     body: JSON.stringify(request),
   });
 
+  const retryAfterHeader = response.headers.get('Retry-After');
+  const parsedRetry =
+    retryAfterHeader && /^\d+$/.test(retryAfterHeader.trim())
+      ? Number(retryAfterHeader.trim())
+      : undefined;
+
   const payload = (await response.json().catch(() => ({}))) as Partial<
     CoachChatSuccessResponse & CoachApiErrorResponse
   >;
@@ -55,6 +62,7 @@ export async function sendCoachChatMessage(
       error: payload.error || 'Live AI is temporarily unavailable.',
       code: payload.code || 'UPSTREAM_ERROR',
       unconfigured,
+      retryAfterSeconds: parsedRetry,
     };
   }
 

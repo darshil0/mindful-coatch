@@ -1,4 +1,3 @@
-import React from 'react';
 import type {
   CompletedSessionRecord,
   WellnessGoal,
@@ -90,3 +89,5 @@ export function SessionsView({
     </div>
   );
 }
+
+export default SessionsView;

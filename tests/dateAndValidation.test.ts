@@ -3,10 +3,12 @@ import assert from 'node:assert/strict';
 import {
   getLocalDateKey,
   getPastLocalDateKeys,
+  getTimeOfDayGreeting,
   isValidDateKey,
   shiftLocalDateKey,
 } from '../src/lib/dateUtils';
 import {
+  countGraphemes,
   isValidWellnessGoal,
   MAX_REFLECTIVE_NOTE_LENGTH,
   normalizeDailyEntry,
@@ -17,7 +19,7 @@ import {
   validateStepsInput,
 } from '../src/lib/validation';
 
-test('getLocalDateKey uses local calendar components rather than UTC shifting', () => {
+test('getLocalDateKey uses local calendar components and greeting avoids Good morning before 05:00 (L10)', () => {
   const localLateNight = new Date(2026, 10, 2, 23, 45, 0); // Nov 2, 2026 11:45 PM local
   assert.equal(getLocalDateKey(localLateNight), '2026-11-02');
   assert.equal(isValidDateKey('2026-11-02'), true);
@@ -27,19 +29,29 @@ test('getLocalDateKey uses local calendar components rather than UTC shifting', 
   assert.equal(past7.length, 7);
   assert.equal(past7[0], '2026-10-27');
   assert.equal(past7[6], '2026-11-02');
+
+  assert.equal(getTimeOfDayGreeting(0), 'Good evening');
+  assert.equal(getTimeOfDayGreeting(3), 'Good evening');
+  assert.equal(getTimeOfDayGreeting(5), 'Good morning');
+  assert.equal(getTimeOfDayGreeting(13), 'Good afternoon');
+  assert.equal(getTimeOfDayGreeting(20), 'Good evening');
 });
 
-test('validation distinguishes missing inputs from recorded zero values and enforces bounds', () => {
+test('validation distinguishes missing inputs from zero, counts graphemes cleanly, and enforces bounds (L10)', () => {
   // Goal validation
   assert.equal(isValidWellnessGoal('sleep'), true);
   assert.equal(isValidWellnessGoal('unknown'), false);
 
-  // Name validation
+  // Name validation (including multi-code-unit emoji graphemes)
   assert.deepEqual(validatePreferredName('   Maya   Lin  '), {
     valid: true,
     value: 'Maya Lin',
   });
   assert.equal(validatePreferredName('   ').valid, false);
+  const flag50 = '🏳️'.repeat(50); // 50 graphemes, 150 UTF-16 code units
+  assert.equal(countGraphemes(flag50), 50);
+  assert.equal(validatePreferredName(flag50).valid, true);
+  assert.equal(validatePreferredName('🏳️'.repeat(51)).valid, false);
 
   // Energy rating
   assert.deepEqual(validateEnergyRating(''), { valid: true, value: null });

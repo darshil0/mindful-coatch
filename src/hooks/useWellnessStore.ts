@@ -1,19 +1,23 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
-import type {
-  ChatMessage,
-  CompletedSessionRecord,
-  DailyEntry,
-  MindfulStreakState,
-  ReminderDismissalsByDate,
-  ReminderSchedule,
-  ReminderSlotId,
-  UserPreferences,
-  UserProfile,
-  WellnessGoal,
-  WellnessStatistics,
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  CURRENT_AI_CONSENT_VERSION,
+  type ChatMessage,
+  type CompletedSessionRecord,
+  type DailyEntry,
+  type MindfulStreakState,
+  type ReminderDismissalsByDate,
+  type ReminderSchedule,
+  type ReminderSlotId,
+  type UserPreferences,
+  type UserProfile,
+  type WellnessGoal,
+  type WellnessStatistics,
 } from '../types/wellness';
 import {
   DEFAULT_PREFERENCES,
+  mergeCompletedSessionsByRunId,
+  mergeEntriesByUpdatedAt,
+  STORAGE_KEYS,
   WellnessStorageStore,
 } from '../services/storageService';
 import {
@@ -62,40 +66,30 @@ export interface WellnessStoreHookResult {
   deleteAllLocalData: () => void;
 }
 
-export function useWellnessStore(): WellnessStoreHookResult {
-  const storeRef = useRef<WellnessStorageStore | null>(null);
-  if (!storeRef.current) {
-    storeRef.current = new WellnessStorageStore();
-  }
-  const store = storeRef.current;
+const KNOWN_STORAGE_KEYS = new Set<string>(Object.values(STORAGE_KEYS));
 
-  const initialHydrated = useMemo(() => {
-    const hydrated = store.hydrate();
-    // Support `?autostart=1` query hook for automated direct-to-dashboard inspection when no profile exists yet
-    if (
-      !hydrated.profile &&
-      typeof window !== 'undefined' &&
-      new URLSearchParams(window.location.search).get('autostart') === '1'
-    ) {
-      const nowIso = new Date().toISOString();
-      const autoProfile: UserProfile = {
-        preferredName: 'Alex',
-        primaryGoal: 'sleep',
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      };
-      store.saveProfile(autoProfile);
-      return {
-        ...hydrated,
-        profile: autoProfile,
-      };
-    }
-    return hydrated;
-  }, [store]);
+function isAutostartAllowed(): boolean {
+  const metaEnv = (import.meta as { env?: Record<string, unknown> }).env;
+  if (!metaEnv) {
+    return (
+      typeof process !== 'undefined' &&
+      process.env.VITE_ENABLE_TEST_AUTOSTART === 'true'
+    );
+  }
+  return metaEnv.DEV === true || metaEnv.VITE_ENABLE_TEST_AUTOSTART === 'true';
+}
+
+export function useWellnessStore(): WellnessStoreHookResult {
+  const [store] = useState(() => new WellnessStorageStore());
+  const [initialMeta] = useState(() => ({
+    hydrated: store.hydrate(),
+    deletedAt: store.getDeletedAtEpochMs(),
+  }));
+  const initialHydrated = initialMeta.hydrated;
+  const seenDeletionEpochRef = useRef<number>(initialMeta.deletedAt);
 
   const [profile, setProfile] = useState<UserProfile | null>(initialHydrated.profile);
   const profileRef = useRef<UserProfile | null>(initialHydrated.profile);
-  profileRef.current = profile;
 
   const [entriesByDate, setEntriesByDate] = useState<Record<string, DailyEntry>>(
     initialHydrated.entriesByDate
@@ -116,32 +110,40 @@ export function useWellnessStore(): WellnessStoreHookResult {
     initialHydrated.preferences
   );
   const preferencesRef = useRef<UserPreferences>(initialHydrated.preferences);
-  preferencesRef.current = preferences;
-
   const reminderScheduleRef = useRef<ReminderSchedule>(initialHydrated.reminderSchedule);
-  reminderScheduleRef.current = reminderSchedule;
-
   const reminderDismissalsRef = useRef<ReminderDismissalsByDate>(
     initialHydrated.reminderDismissals
   );
-  reminderDismissalsRef.current = reminderDismissals;
-
   const entriesRef = useRef<Record<string, DailyEntry>>(initialHydrated.entriesByDate);
-  entriesRef.current = entriesByDate;
-
   const sessionsRef = useRef<CompletedSessionRecord[]>(
     initialHydrated.completedSessions
   );
-  sessionsRef.current = completedSessions;
-
   const saveChatHistoryRef = useRef<boolean>(initialHydrated.preferences.saveChatHistory);
-  saveChatHistoryRef.current = preferences.saveChatHistory;
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(
     initialHydrated.chatMessages
   );
   const chatMessagesRef = useRef<ChatMessage[]>(initialHydrated.chatMessages);
-  chatMessagesRef.current = chatMessages;
+
+  useEffect(() => {
+    profileRef.current = profile;
+    entriesRef.current = entriesByDate;
+    sessionsRef.current = completedSessions;
+    preferencesRef.current = preferences;
+    saveChatHistoryRef.current = preferences.saveChatHistory;
+    reminderScheduleRef.current = reminderSchedule;
+    reminderDismissalsRef.current = reminderDismissals;
+    chatMessagesRef.current = chatMessages;
+  }, [
+    profile,
+    entriesByDate,
+    completedSessions,
+    preferences,
+    reminderSchedule,
+    reminderDismissals,
+    chatMessages,
+  ]);
+
   const [storageAvailable, setStorageAvailable] = useState<boolean>(
     initialHydrated.storageAvailable
   );
@@ -153,6 +155,124 @@ export function useWellnessStore(): WellnessStoreHookResult {
     setStorageAvailable(store.isPersistentAvailable());
     setStorageNotice(store.getNotice());
   }, [store]);
+
+  // Idempotent `?autostart=1` setup inside effect (never in render/useMemo) gated strictly by dev/test flag (L5)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !isAutostartAllowed()) {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('autostart') !== '1') {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      if (profileRef.current !== null) return;
+      const existing = store.loadProfile();
+      if (existing) {
+        profileRef.current = existing;
+        setProfile(existing);
+        return;
+      }
+      const nowIso = new Date().toISOString();
+      const autoProfile: UserProfile = {
+        preferredName: 'Alex',
+        primaryGoal: 'sleep',
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      profileRef.current = autoProfile;
+      store.saveProfile(autoProfile);
+      setProfile(autoProfile);
+      syncStorageHealth();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [store, syncStorageHealth]);
+
+  // M6: Cross-tab storage synchronization with conflict-safe merge & deletion tombstones
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleStorageEvent = (event: StorageEvent) => {
+      if (event.key !== null && !KNOWN_STORAGE_KEYS.has(event.key)) {
+        return;
+      }
+
+      const todayKey = getLocalDateKey();
+      const latestDeletedEpoch = store.getDeletedAtEpochMs();
+      if (latestDeletedEpoch > seenDeletionEpochRef.current) {
+        seenDeletionEpochRef.current = latestDeletedEpoch;
+        const fresh = store.hydrate(todayKey);
+        profileRef.current = fresh.profile;
+        entriesRef.current = fresh.entriesByDate;
+        sessionsRef.current = fresh.completedSessions;
+        preferencesRef.current = fresh.preferences;
+        saveChatHistoryRef.current = fresh.preferences.saveChatHistory;
+        reminderScheduleRef.current = fresh.reminderSchedule;
+        reminderDismissalsRef.current = fresh.reminderDismissals;
+        chatMessagesRef.current = fresh.chatMessages;
+
+        setProfile(fresh.profile);
+        setEntriesByDate(fresh.entriesByDate);
+        setCompletedSessions(fresh.completedSessions);
+        setMindfulStreak(fresh.mindfulStreak);
+        setReminderSchedule(fresh.reminderSchedule);
+        setReminderDismissals(fresh.reminderDismissals);
+        setPreferences(fresh.preferences);
+        setChatMessages(fresh.chatMessages);
+        syncStorageHealth();
+        return;
+      }
+
+      const incomingProfile = store.loadProfile();
+      const incomingPrefs = store.loadPreferences();
+      const incomingEntries = store.loadEntries();
+      const incomingSessions = store.loadCompletedSessions();
+      const { schedule: incomingSchedule, dismissals: incomingDismissals } =
+        store.loadReminders(todayKey);
+
+      const mergedEntries =
+        event.key === STORAGE_KEYS.ENTRIES || event.key === null
+          ? mergeEntriesByUpdatedAt(entriesRef.current, incomingEntries)
+          : incomingEntries;
+      const mergedSessions = mergeCompletedSessionsByRunId(
+        sessionsRef.current,
+        incomingSessions
+      );
+
+      profileRef.current = incomingProfile;
+      entriesRef.current = mergedEntries;
+      sessionsRef.current = mergedSessions;
+      preferencesRef.current = incomingPrefs;
+      saveChatHistoryRef.current = incomingPrefs.saveChatHistory;
+      reminderScheduleRef.current = incomingSchedule;
+      reminderDismissalsRef.current = incomingDismissals;
+
+      setProfile(incomingProfile);
+      setEntriesByDate(mergedEntries);
+      setCompletedSessions(mergedSessions);
+      setMindfulStreak(
+        computeMindfulStreak(mergedEntries, mergedSessions, todayKey)
+      );
+      setPreferences(incomingPrefs);
+      setReminderSchedule(incomingSchedule);
+      setReminderDismissals(incomingDismissals);
+
+      if (incomingPrefs.saveChatHistory) {
+        const nextChat = store.loadChatMessages();
+        chatMessagesRef.current = nextChat;
+        setChatMessages(nextChat);
+      } else {
+        chatMessagesRef.current = [];
+        setChatMessages([]);
+      }
+      syncStorageHealth();
+    };
+
+    window.addEventListener('storage', handleStorageEvent);
+    return () => {
+      window.removeEventListener('storage', handleStorageEvent);
+    };
+  }, [store, syncStorageHealth]);
 
   const completeOnboarding = useCallback(
     (preferredName: string, primaryGoal: WellnessGoal) => {
@@ -175,7 +295,9 @@ export function useWellnessStore(): WellnessStoreHookResult {
   const saveDailyEntry = useCallback(
     (entry: DailyEntry, todayDateKey: string = getLocalDateKey()) => {
       const normalized = normalizeDailyEntry(entry);
-      const next = { ...entriesRef.current };
+      const persistedEntries = store.loadEntries();
+      const base = mergeEntriesByUpdatedAt(entriesRef.current, persistedEntries);
+      const next = { ...base };
       if (hasAnyRecordedMetric(normalized)) {
         next[normalized.date] = normalized;
       } else {
@@ -198,20 +320,22 @@ export function useWellnessStore(): WellnessStoreHookResult {
 
   const recordSessionCompletion = useCallback(
     (record: CompletedSessionRecord, todayDateKey: string = getLocalDateKey()) => {
-      const prev = sessionsRef.current;
-      const next = appendUniqueCompletion(prev, record);
-      if (next.length !== prev.length) {
-        sessionsRef.current = next;
-        store.saveCompletedSessions(next);
-        setCompletedSessions(next);
+      const latestPersisted = store.loadCompletedSessions();
+      const mergedBase = mergeCompletedSessionsByRunId(
+        sessionsRef.current,
+        latestPersisted
+      );
+      const next = appendUniqueCompletion(mergedBase, record);
+      sessionsRef.current = next;
+      store.saveCompletedSessions(next);
+      setCompletedSessions(next);
 
-        const nextStreak = store.recalculateAndSaveStreak(
-          entriesRef.current,
-          next,
-          todayDateKey
-        );
-        setMindfulStreak(nextStreak);
-      }
+      const nextStreak = store.recalculateAndSaveStreak(
+        entriesRef.current,
+        next,
+        todayDateKey
+      );
+      setMindfulStreak(nextStreak);
       syncStorageHealth();
     },
     [store, syncStorageHealth]
@@ -283,8 +407,17 @@ export function useWellnessStore(): WellnessStoreHookResult {
   );
 
   const acknowledgeAiNotice = useCallback(() => {
-    if (preferencesRef.current.acknowledgedAiNotice) return;
-    const next = { ...preferencesRef.current, acknowledgedAiNotice: true };
+    if (
+      preferencesRef.current.acknowledgedAiNotice &&
+      preferencesRef.current.aiConsentVersion === CURRENT_AI_CONSENT_VERSION
+    ) {
+      return;
+    }
+    const next: UserPreferences = {
+      ...preferencesRef.current,
+      acknowledgedAiNotice: true,
+      aiConsentVersion: CURRENT_AI_CONSENT_VERSION,
+    };
     preferencesRef.current = next;
     store.savePreferences(next);
     setPreferences(next);
@@ -322,6 +455,7 @@ export function useWellnessStore(): WellnessStoreHookResult {
 
   const deleteAllLocalData = useCallback(() => {
     store.deleteAllLocalData();
+    seenDeletionEpochRef.current = store.getDeletedAtEpochMs();
     profileRef.current = null;
     entriesRef.current = {};
     sessionsRef.current = [];

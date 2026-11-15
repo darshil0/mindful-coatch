@@ -8,6 +8,7 @@ import { getSessionById } from '../data/guidedSessions';
 import {
   createIdleSessionTimer,
   endSessionEarly,
+  getSessionElapsedMs,
   pauseSessionTimer,
   resumeSessionTimer,
   startSessionTimer,
@@ -16,19 +17,18 @@ import {
 import { getLocalDateKey } from '../lib/dateUtils';
 
 interface UseSessionPlayerOptions {
-  initialSessionId: string | null;
-  onClearInitialSession: () => void;
   onRecordSessionCompletion: (record: CompletedSessionRecord) => void;
 }
 
+/**
+ * Coordinates active session timer state without triggering 4Hz re-renders in the root App tree.
+ * Completion is scheduled cleanly via remaining-duration timeout + focus/visibility catch-up,
+ * while smooth 250ms countdown UI ticking lives inside `ActiveSessionPlayer`.
+ */
 export function useSessionPlayer({
-  initialSessionId,
-  onClearInitialSession,
   onRecordSessionCompletion,
 }: UseSessionPlayerOptions) {
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
-    initialSessionId
-  );
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const activeSession: GuidedSessionDefinition | undefined = selectedSessionId
     ? getSessionById(selectedSessionId)
     : undefined;
@@ -45,54 +45,56 @@ export function useSessionPlayer({
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
   const recordedRunIdsRef = useRef<Set<string>>(new Set());
 
-  const timerStateRef = useRef<SessionTimerState>(timerState);
-  timerStateRef.current = timerState;
-
-  // Sync if navigated from Home "Open guided session"
-  useEffect(() => {
-    if (initialSessionId) {
-      const target = getSessionById(initialSessionId);
-      if (target) {
-        const currentTimer = timerStateRef.current;
-        const alreadyActiveSameSession =
-          currentTimer.sessionId === target.id &&
-          (currentTimer.status === 'running' || currentTimer.status === 'paused');
-        setSelectedSessionId(target.id);
-        if (!alreadyActiveSameSession) {
-          setSelectedDurationSec(target.defaultDurationSeconds);
-          setTimerState(createIdleSessionTimer(target.id, target.defaultDurationSeconds));
-          setNowMs(Date.now());
-        }
+  const openSessionById = (sessionId: string) => {
+    const target = getSessionById(sessionId);
+    if (!target) return;
+    setSelectedSessionId(target.id);
+    setTimerState((prev) => {
+      const alreadyActiveSameSession =
+        prev.sessionId === target.id &&
+        (prev.status === 'running' || prev.status === 'paused');
+      if (alreadyActiveSameSession) {
+        return prev;
       }
-      onClearInitialSession();
-    }
-  }, [initialSessionId, onClearInitialSession]);
+      setSelectedDurationSec(target.defaultDurationSeconds);
+      setNowMs(Date.now());
+      return createIdleSessionTimer(target.id, target.defaultDurationSeconds);
+    });
+  };
 
-  // Accurate wall-clock tick + visibilitychange / focus catch-up
+  // Background completion timeout + visibilitychange/focus catch-up (no 250ms root polling!)
   useEffect(() => {
     if (timerState.status !== 'running') return;
 
-    const tick = () => {
+    const syncNow = () => {
       const currentNow = Date.now();
-      setNowMs(currentNow);
-      setTimerState((prev) => syncSessionTimer(prev, currentNow));
+      setTimerState((prev) => {
+        const synced = syncSessionTimer(prev, currentNow);
+        if (synced.status !== prev.status) {
+          setNowMs(currentNow);
+        }
+        return synced;
+      });
     };
 
-    const intervalId = window.setInterval(tick, 250);
+    const elapsedNow = getSessionElapsedMs(timerState, Date.now());
+    const remainingMs = Math.max(50, timerState.durationMs - elapsedNow + 25);
+    const completionTimer = window.setTimeout(syncNow, remainingMs);
+
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
-        tick();
+        syncNow();
       }
     };
-    window.addEventListener('focus', tick);
+    window.addEventListener('focus', syncNow);
     document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
-      window.clearInterval(intervalId);
-      window.removeEventListener('focus', tick);
+      window.clearTimeout(completionTimer);
+      window.removeEventListener('focus', syncNow);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [timerState.status]);
+  }, [timerState]);
 
   // Record session completion exactly once when timer reaches 'completed'
   useEffect(() => {
@@ -183,6 +185,7 @@ export function useSessionPlayer({
     selectedDurationSec,
     timerState,
     nowMs,
+    openSessionById,
     selectSession,
     exitToCatalog,
     changeDuration,

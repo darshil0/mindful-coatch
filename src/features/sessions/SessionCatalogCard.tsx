@@ -1,4 +1,3 @@
-import React from 'react';
 import { Clock, Play } from 'lucide-react';
 import type { GuidedSessionDefinition } from '../../types/wellness';
 
