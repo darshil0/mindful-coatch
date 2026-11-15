@@ -6,29 +6,29 @@ Built with React, TypeScript, Vite, and Express, the app keeps personal wellness
 
 ## Features
 
-- Local onboarding with a preferred name and primary wellness goal
-- Daily wellness check-ins for energy, sleep, steps, and brief reflective notes on the user’s local calendar date
-- Chronological reflective notes journal on the Home view with newest-first and oldest-first sorting
-- Gentle morning check-in and evening reflection reminders with customizable local scheduling
-- Seven-day Recharts trend visualization (daily energy and completed mindfulness sessions), accessible text table, and Mindful Streak tracking
-- Weekly wellness score summary on Home calculated transparently from recorded 7-day energy, sleep, consistency, and movement without treating unrecorded metrics as zero
-- On-demand **Weekly progress report** section on Home built from the local statistics engine, featuring narrative summaries, highlights, next-week focus prompts, stale-data refresh detection, clipboard copy, and `.txt` export
-- Collapsible **Score-based wellness tips** insight cards offering one-sentence guidance tailored to the user’s 7-day average score and recorded pillars
-- One-click **Export snippet** action to generate, copy, or share a concise text summary of weekly progress
-- Guided sessions for mindfulness, breathing, energy resets, and sleep wind-down
-- A supportive coach experience with live Gemini AI integration and a curated demo mode fallback
-- Privacy controls for chat-history persistence and local data deletion
+- Local onboarding with a preferred name and primary wellness goal (`Sleep`, `Stress`, `Energy`, or `Weight`)
+- Daily wellness check-ins for self-reported energy (`1–10`, displayed as `10–100`), sleep (`0–24h`), steps (`0+`, manual entry), and optional reflective notes (`<= 500` characters) stored by local calendar date
+- Chronological **Reflective notes** journal on Home with newest-first and oldest-first sorting
+- Gentle morning check-in and evening reflection reminders with customizable local scheduling (`morning < evening` when both are enabled), daily dismissal pruning, and optional browser alerts
+- Seven-day Recharts trend visualization (daily energy and completed mindfulness sessions), accessible text table, and **Mindful Streaks** tracking
+- **Weekly wellness score** calculated transparently from recorded 7-day metrics (Energy `35%`, Sleep relative to `7–9h` `25%`, Consistency `25%`, Movement toward `8,000` steps `15%`), reweighting only across recorded categories so missing entries are never treated as zero
+- On-demand **Weekly progress report** on Home built from the local statistics engine, featuring narrative summaries, recorded highlights, next-week focus prompts, stale-data refresh detection, clipboard copy, and `.txt` export
+- Collapsible **Score-based wellness tips** insight cards synced live to your 7-day average score and active wellness focus
+- One-click **Export snippet** panel to copy or share a concise text summary of weekly progress
+- Silent, text-guided sessions (Gentle breathing, Sleep wind-down, Mindfulness, Energy reset) using wall-clock timers that persist across tab navigation
+- Supportive wellness coaching via server-routed Gemini AI with a curated Demo Coach fallback and immediate client/server urgent crisis detection
+- Privacy controls for opt-in local chat-history persistence (off by default) and full local data deletion
 
 ## Tech Stack
 
 - Frontend: React 19, TypeScript 7, Vite 8, Tailwind CSS 4, Recharts 3
 - Backend: Express 5, Node.js
-- AI: Google GenAI SDK
-- Testing: Node’s built-in test runner (`node:test`)
+- AI: `@google/genai` SDK (`gemini-4-hydrogen` with `gemini-3.1-flash-lite` failover)
+- Testing: Node’s built-in test runner (`node:test`) executed with `tsx --test`
 
 ## Prerequisites
 
-- Node.js 22 or newer
+- Node.js 22 or newer (with native TypeScript stripping for `npm start`)
 - npm (or Bun, if preferred)
 
 ## Getting Started
@@ -59,7 +59,7 @@ Then set a Gemini API key if you want live AI coaching enabled:
 GEMINI_API_KEY="your_server_side_gemini_api_key"
 ```
 
-If `GEMINI_API_KEY` (or optional `GOOGLE_API_KEY` / `API_KEY` fallback) is not set, the app will continue to work in demo mode with built-in wellness guidance. (`APP_URL` in `.env.example` is optional hosting metadata provided by deployment environments.)
+If `GEMINI_API_KEY` (or optional `GOOGLE_API_KEY` / `API_KEY` fallback) is not set, the app continues working cleanly in Demo Coach mode with built-in wellness guidance. (`APP_URL` in `.env.example` is optional hosting metadata provided by deployment environments.)
 
 ### 3. Run the app
 
@@ -77,13 +77,13 @@ http://localhost:3000
 
 | Command | Description |
 | :--- | :--- |
-| `npm run dev` | Starts the Express + Vite development server |
-| `npm test` | Runs the unit test suite |
-| `npm run lint` | Runs TypeScript type checking |
-| `npm run build` | Builds the production bundle |
-| `npm run preview` | Previews the built production bundle locally |
-| `npm start` | Starts the production server |
-| `npm run clean` | Removes build artifacts |
+| `npm run dev` | Starts the Express + Vite development server on port `3000` |
+| `npm test` | Runs the unit test suite (`tsx --test tests/*.test.ts`) |
+| `npm run lint` | Runs TypeScript type checking (`tsc --noEmit`) |
+| `npm run build` | Builds the production client bundle into `dist/` |
+| `npm run preview` | Previews the built Vite client bundle locally |
+| `npm start` | Starts the Express server (`node server.ts`; run `npm run build` and set `NODE_ENV=production` to serve `dist/`) |
+| `npm run clean` | Removes build artifacts (`dist`, `server.js`) |
 
 ## Project Structure
 
@@ -160,7 +160,7 @@ http://localhost:3000
 
 ### `GET /api/coach/status`
 
-Returns whether live AI is configured.
+Returns whether live Gemini credentials are configured on the server.
 
 Response example:
 
@@ -172,7 +172,11 @@ Response example:
 
 ### `POST /api/coach/chat`
 
-Generates a coaching response or an urgent crisis notice.
+Generates a coaching response or an urgent safety resource notice.
+
+- **Validation & Safety:** Rejects empty or oversized messages (`> 1,200` characters) with HTTP `400`, and intercepts urgent self-harm or medical emergency language immediately (returning `mode: "demo"`, `isCrisisNotice: true`) before rate limiting or contacting Gemini.
+- **Rate Limiting:** Enforces a sliding-window per-IP limit (`15` requests per `60` seconds), returning HTTP `429` (`RATE_LIMITED`) when exceeded.
+- **Model Failover:** Normalizes up to `6` recent alternating history turns and tries `gemini-4-hydrogen` then `gemini-3.1-flash-lite` within a `20`-second overall deadline (returning `502`/`503`/`504` on upstream failures so the client falls back to Demo Coach).
 
 Request body:
 
@@ -199,11 +203,15 @@ Response example:
 
 ## Privacy and Safety
 
-- Wellness data, weekly progress reports, and shareable snippets are computed locally in the browser and never leave the device unless explicitly copied or shared by the user.
-- Chat history persistence is disabled by default and can be toggled in app settings.
-- The app does not diagnose or prescribe treatment.
-- If urgent crisis or self-harm risk is detected, the app prioritizes emergency support guidance.
+- Wellness entries, Mindful Streaks, reflective notes, weekly wellness scores, weekly progress reports, and shareable snippets are computed and stored locally in browser `localStorage` (falling back to session memory if storage is blocked or full) and never leave the device unless explicitly copied or shared by the user.
+- Chat history persistence is disabled by default and can be toggled in **Profile**.
+- Mindful Coach provides general wellness education only and does not diagnose, treat, or prescribe.
+- When urgent medical or self-harm language is detected, both the client and server immediately prioritize crisis support guidance (`911` / `988`) over routine coaching.
+
+## Release History
+
+See [CHANGELOG.md](./CHANGELOG.md) for a full summary of releases and fixes.
 
 ## License
 
-This project is provided as-is for local wellness tooling and coaching experiments.
+Apache License 2.0 (see `SPDX-License-Identifier: Apache-2.0` in source headers).
