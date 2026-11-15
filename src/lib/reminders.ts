@@ -35,6 +35,13 @@ export interface EvaluatedReminderState {
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
+function formatClockString(totalMinutes: number): string {
+  const normalized = ((totalMinutes % 1440) + 1440) % 1440;
+  const hours = Math.floor(normalized / 60);
+  const minutes = normalized % 60;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
 export function isValidTimeString(value: unknown): value is string {
   return typeof value === 'string' && TIME_PATTERN.test(value);
 }
@@ -96,9 +103,17 @@ export function sanitizeReminderSchedule(raw: unknown): ReminderSchedule {
     typeof eveningRaw.enabled === 'boolean'
       ? eveningRaw.enabled
       : DEFAULT_REMINDER_SCHEDULE.evening.enabled;
-  const eveningTime = isValidTimeString(eveningRaw.time)
+  let eveningTime = isValidTimeString(eveningRaw.time)
     ? eveningRaw.time
     : DEFAULT_REMINDER_SCHEDULE.evening.time;
+
+  if (morningEnabled && eveningEnabled && morningTime === eveningTime) {
+    const eveningMinutes = parseTimeToMinutes(eveningTime);
+    if (eveningMinutes !== null) {
+      const adjustedMinutes = Math.min(23 * 60 + 59, eveningMinutes + 30);
+      eveningTime = formatClockString(adjustedMinutes);
+    }
+  }
 
   return {
     morning: {
