@@ -35,23 +35,28 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22.18.0"
-          cache: npm
-          cache-dependency-path: package-lock.json
+          cache: bun
+          cache-dependency-path: bun.lock
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.2.11"
 
       - name: Install dependencies
-        run: npm ci --include=dev --no-audit --no-fund
+        run: bun install --frozen-lockfile
 
       - name: Check formatting
-        run: npm run format:check
+        run: bun run format:check
 
       - name: Lint
-        run: npm run lint
+        run: bun run lint
 
       - name: Check types
-        run: npm run typecheck
+        run: bun run typecheck
 
       - name: Run tests
-        run: npm test
+        run: bun test
 
       - name: Build
-        run: npm run build
+        run: bun run build
